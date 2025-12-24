@@ -22,7 +22,7 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { useState } from "react"
 import { addAccountAction } from "@/actions/account-actions"
-import { BANKS, ACCOUNT_TYPES } from "@/lib/constants"
+import { BANKS, PRODUCT_TYPES, CURRENCIES } from "@/lib/constants"
 import { Plus } from "lucide-react"
 
 export function AddAccountDialog() {
@@ -44,7 +44,7 @@ export function AddAccountDialog() {
                     <Plus className="mr-2 h-4 w-4" /> 添加账户
                 </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-[500px]">
                 <DialogHeader>
                     <DialogTitle>添加新账户</DialogTitle>
                     <DialogDescription>
@@ -54,11 +54,11 @@ export function AddAccountDialog() {
                 <form action={handleSubmit} className="grid gap-4 py-4">
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="bankName" className="text-right">
-                            银行
+                            平台
                         </Label>
                         <Select name="bankName" required>
                             <SelectTrigger className="col-span-3">
-                                <SelectValue placeholder="选择银行" />
+                                <SelectValue placeholder="选择银行/平台" />
                             </SelectTrigger>
                             <SelectContent>
                                 {BANKS.map((bank) => (
@@ -70,29 +70,46 @@ export function AddAccountDialog() {
                         </Select>
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="productType" className="text-right">
+                            产品类型
+                        </Label>
+                        <Select name="productType" defaultValue="DEMAND_DEPOSIT">
+                            <SelectTrigger className="col-span-3">
+                                <SelectValue placeholder="选择产品类型" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {PRODUCT_TYPES.map((type) => (
+                                    <SelectItem key={type.value} value={type.value}>
+                                        {type.label}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="accountName" className="text-right">
-                            账户名
+                            产品名
                         </Label>
                         <Input
                             id="accountName"
                             name="accountName"
-                            placeholder="如：工资卡"
+                            placeholder="如：博时主题基金"
                             className="col-span-3"
                             required
                         />
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="accountType" className="text-right">
-                            类型
+                        <Label htmlFor="currency" className="text-right">
+                            货币
                         </Label>
-                        <Select name="accountType" defaultValue="CHECKING">
+                        <Select name="currency" defaultValue="CNY">
                             <SelectTrigger className="col-span-3">
-                                <SelectValue placeholder="选择类型" />
+                                <SelectValue placeholder="选择货币" />
                             </SelectTrigger>
                             <SelectContent>
-                                {ACCOUNT_TYPES.map((type) => (
-                                    <SelectItem key={type.value} value={type.value}>
-                                        {type.label}
+                                {CURRENCIES.map((curr) => (
+                                    <SelectItem key={curr.value} value={curr.value}>
+                                        {curr.label}
                                     </SelectItem>
                                 ))}
                             </SelectContent>
@@ -110,6 +127,19 @@ export function AddAccountDialog() {
                             placeholder="0.00"
                             className="col-span-3"
                             required
+                        />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="expectedYield" className="text-right">
+                            收益率%
+                        </Label>
+                        <Input
+                            id="expectedYield"
+                            name="expectedYield"
+                            type="number"
+                            step="0.01"
+                            placeholder="如 2.50"
+                            className="col-span-3"
                         />
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">

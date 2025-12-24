@@ -29,9 +29,13 @@ Open [http://localhost:3000](http://localhost:3000) with your browser.
 
 ## Features
 
-- **Authentication**: Secure login and registration.
-- **Member Management**: Manage family members.
-- **Asset Management**: Track assets (coming soon).
+- **Authentication**: Secure login and registration (first user becomes admin).
+- **Dashboard**: Overview with total assets, statistics by bank and account type.
+- **Account Management**: Manage bank accounts with balance tracking.
+- **Member Management**: View family member list.
+- **User Management**: Admin can manage users and roles.
+- **Settings**: Update profile, change password.
+- **Backup**: Export data to JSON file.
 
 ## Technology Stack
 

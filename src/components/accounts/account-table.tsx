@@ -12,35 +12,63 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Trash2, Check, X, Pencil } from "lucide-react"
 import { deleteAccountAction, updateBalanceAction } from "@/actions/account-actions"
-import { BANKS, ACCOUNT_TYPES } from "@/lib/constants"
-import { useState } from "react"
+import { PRODUCT_TYPES, CURRENCIES } from "@/lib/constants"
+import { useState, useEffect } from "react"
 import { formatDistanceToNow } from "date-fns"
 import { zhCN } from "date-fns/locale"
+import { Badge } from "@/components/ui/badge"
 
 interface Account {
     id: string
     bankName: string
     accountName: string
+    productType: string | null
     accountType: string
+    currency: string | null
     balance: number
+    expectedYield: number | null
     updatedAt: Date | null
+    user?: {
+        name: string | null
+        email: string
+    }
 }
 
-function getBankLabel(value: string) {
-    return BANKS.find(b => b.value === value)?.label || value
+function getProductTypeLabel(value: string | null) {
+    if (!value) return "-"
+    return PRODUCT_TYPES.find(t => t.value === value)?.label || value
 }
 
-function getTypeLabel(value: string) {
-    return ACCOUNT_TYPES.find(t => t.value === value)?.label || value
+function getCurrencySymbol(currency: string | null) {
+    switch (currency) {
+        case "USD": return "$"
+        case "HKD": return "HK$"
+        case "EUR": return "€"
+        default: return "¥"
+    }
 }
 
 function formatBalance(cents: number) {
     return (cents / 100).toLocaleString("zh-CN", { minimumFractionDigits: 2 })
 }
 
-export function AccountTable({ accounts }: { accounts: Account[] }) {
+function formatYield(yieldValue: number | null) {
+    if (yieldValue === null) return "-"
+    return (yieldValue / 100).toFixed(2) + "%"
+}
+
+export function AccountTable({ accounts, isAdmin }: { accounts: Account[]; isAdmin?: boolean }) {
     const [editingId, setEditingId] = useState<string | null>(null)
     const [editValue, setEditValue] = useState("")
+    const [mounted, setMounted] = useState(false)
+
+    useEffect(() => {
+        setMounted(true)
+    }, [])
+
+    if (!mounted) {
+        return <div className="rounded-md border p-8 text-center text-muted-foreground">正在加载账户数据...</div>
+    }
 
     const handleEdit = (account: Account) => {
         setEditingId(account.id)
@@ -64,10 +92,13 @@ export function AccountTable({ accounts }: { accounts: Account[] }) {
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead>银行</TableHead>
-                        <TableHead>账户名称</TableHead>
+                        <TableHead>平台</TableHead>
+                        <TableHead>产品名</TableHead>
+                        {isAdmin && <TableHead>所有者</TableHead>}
                         <TableHead>类型</TableHead>
+                        <TableHead>货币</TableHead>
                         <TableHead className="text-right">余额</TableHead>
+                        <TableHead className="text-right">收益率</TableHead>
                         <TableHead>更新时间</TableHead>
                         <TableHead className="text-right">操作</TableHead>
                     </TableRow>
@@ -75,13 +106,26 @@ export function AccountTable({ accounts }: { accounts: Account[] }) {
                 <TableBody>
                     {accounts.map((account) => (
                         <TableRow key={account.id}>
-                            <TableCell className="font-medium">{getBankLabel(account.bankName)}</TableCell>
+                            <TableCell className="font-medium">{account.bankName}</TableCell>
                             <TableCell>{account.accountName}</TableCell>
-                            <TableCell>{getTypeLabel(account.accountType)}</TableCell>
+                            {isAdmin && (
+                                <TableCell>
+                                    <div className="flex flex-col">
+                                        <span className="text-sm">{account.user?.name || "未知"}</span>
+                                        <span className="text-xs text-muted-foreground">{account.user?.email}</span>
+                                    </div>
+                                </TableCell>
+                            )}
+                            <TableCell>
+                                <Badge variant="secondary">{getProductTypeLabel(account.productType)}</Badge>
+                            </TableCell>
+                            <TableCell>
+                                <Badge variant="outline">{account.currency || "CNY"}</Badge>
+                            </TableCell>
                             <TableCell className="text-right">
                                 {editingId === account.id ? (
                                     <div className="flex items-center justify-end gap-1">
-                                        <span>¥</span>
+                                        <span>{getCurrencySymbol(account.currency)}</span>
                                         <Input
                                             type="number"
                                             step="0.01"
@@ -99,12 +143,15 @@ export function AccountTable({ accounts }: { accounts: Account[] }) {
                                     </div>
                                 ) : (
                                     <div className="flex items-center justify-end gap-1">
-                                        <span>¥{formatBalance(account.balance)}</span>
+                                        <span>{getCurrencySymbol(account.currency)}{formatBalance(account.balance)}</span>
                                         <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handleEdit(account)}>
                                             <Pencil className="h-3 w-3 text-muted-foreground" />
                                         </Button>
                                     </div>
                                 )}
+                            </TableCell>
+                            <TableCell className="text-right text-muted-foreground">
+                                {formatYield(account.expectedYield)}
                             </TableCell>
                             <TableCell className="text-muted-foreground">
                                 {account.updatedAt
@@ -117,7 +164,10 @@ export function AccountTable({ accounts }: { accounts: Account[] }) {
                                     size="icon"
                                     onClick={async () => {
                                         if (confirm("确定删除此账户吗？")) {
-                                            await deleteAccountAction(account.id)
+                                            const result = await deleteAccountAction(account.id)
+                                            if (result?.error) {
+                                                alert(result.error)
+                                            }
                                         }
                                     }}
                                 >
@@ -128,7 +178,7 @@ export function AccountTable({ accounts }: { accounts: Account[] }) {
                     ))}
                     {accounts.length === 0 && (
                         <TableRow>
-                            <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">
+                            <TableCell colSpan={isAdmin ? 9 : 8} className="text-center h-24 text-muted-foreground">
                                 暂无账户，点击右上角"添加账户"开始记录
                             </TableCell>
                         </TableRow>

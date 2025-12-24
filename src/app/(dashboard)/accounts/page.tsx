@@ -2,13 +2,17 @@ import { getAccountsAction } from "@/actions/account-actions"
 import { AccountTable } from "@/components/accounts/account-table"
 import { AddAccountDialog } from "@/components/accounts/add-account-dialog"
 import { redirect } from "next/navigation"
+import { getCurrentUserAction } from "@/actions/settings-actions"
 
 export default async function AccountsPage() {
     const accounts = await getAccountsAction()
+    const user = await getCurrentUserAction()
 
-    if (!accounts) {
+    if (!accounts || !user) {
         redirect("/login")
     }
+
+    const isAdmin = user.role === "ADMIN"
 
     // 计算总余额
     const totalBalance = accounts.reduce((sum, acc) => sum + acc.balance, 0)
@@ -24,7 +28,7 @@ export default async function AccountsPage() {
                 </div>
                 <AddAccountDialog />
             </div>
-            <AccountTable accounts={accounts} />
+            <AccountTable accounts={accounts as any} isAdmin={isAdmin} />
         </div>
     )
 }

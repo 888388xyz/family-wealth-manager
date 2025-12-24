@@ -12,7 +12,7 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { LayoutDashboard, Wallet, Users, Settings, LogOut } from "lucide-react"
+import { LayoutDashboard, Wallet, Users, Settings, LogOut, ShieldCheck } from "lucide-react"
 import Link from "next/link"
 import { signOut } from "next-auth/react"
 
@@ -28,14 +28,15 @@ const items = [
         url: "/accounts",
         icon: Wallet,
     },
-    {
-        title: "家庭成员",
-        url: "/members",
-        icon: Users,
-    },
 ]
 
-export function AppSidebar() {
+interface AppSidebarProps {
+    userRole?: string | null
+}
+
+export function AppSidebar({ userRole }: AppSidebarProps) {
+    const isAdmin = userRole === "ADMIN"
+
     return (
         <Sidebar>
             <SidebarHeader>
@@ -62,13 +63,32 @@ export function AppSidebar() {
                         </SidebarMenu>
                     </SidebarGroupContent>
                 </SidebarGroup>
+                {isAdmin && (
+                    <SidebarGroup>
+                        <SidebarGroupLabel>管理</SidebarGroupLabel>
+                        <SidebarGroupContent>
+                            <SidebarMenu>
+                                <SidebarMenuItem>
+                                    <SidebarMenuButton asChild>
+                                        <Link href="/users">
+                                            <ShieldCheck />
+                                            <span>用户管理</span>
+                                        </Link>
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+                            </SidebarMenu>
+                        </SidebarGroupContent>
+                    </SidebarGroup>
+                )}
             </SidebarContent>
             <SidebarFooter>
                 <SidebarMenu>
                     <SidebarMenuItem>
-                        <SidebarMenuButton>
-                            <Settings />
-                            <span>设置</span>
+                        <SidebarMenuButton asChild>
+                            <Link href="/settings">
+                                <Settings />
+                                <span>设置</span>
+                            </Link>
                         </SidebarMenuButton>
                     </SidebarMenuItem>
                     <SidebarMenuItem>

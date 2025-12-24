@@ -52,13 +52,17 @@ export const bankAccounts = sqliteTable("bank_account", {
     userId: text("userId")
         .notNull()
         .references(() => users.id, { onDelete: "cascade" }),
-    bankName: text("bankName").notNull(), // 银行名称
-    accountName: text("accountName").notNull(), // 账户名称，如：工资卡
+    bankName: text("bankName").notNull(), // 银行/平台名称
+    accountName: text("accountName").notNull(), // 产品名称
+    productType: text("productType", {
+        enum: ["FUND", "FIXED_DEPOSIT", "DEMAND_DEPOSIT", "DEMAND_WEALTH", "PRECIOUS_METAL", "STOCK", "OTHER"]
+    }).notNull().default("DEMAND_DEPOSIT"), // 产品类型：基金/定期理财/活期存款/活期理财/贵金属/股票/其他
     accountType: text("accountType", {
         enum: ["CHECKING", "SAVINGS", "MONEY_MARKET", "CREDIT", "WEALTH", "OTHER"]
     }).notNull().default("CHECKING"),
     balance: integer("balance").notNull().default(0), // 当前余额（分）
-    currency: text("currency").default("CNY"),
+    currency: text("currency").default("CNY"), // 货币：CNY/USD
+    expectedYield: integer("expectedYield"), // 预期年化收益率（万分之一，如 250 = 2.50%）
     notes: text("notes"),
     createdAt: integer("created_at", { mode: "timestamp" }).default(sql`(unixepoch())`),
     updatedAt: integer("updated_at", { mode: "timestamp" }).$onUpdate(() => new Date()),

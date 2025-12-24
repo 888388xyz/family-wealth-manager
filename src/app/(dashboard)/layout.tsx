@@ -6,18 +6,19 @@ import {
     BreadcrumbItem,
     BreadcrumbLink,
     BreadcrumbList,
-    BreadcrumbPage,
-    BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
+import { getCurrentUserAction } from "@/actions/settings-actions"
 
-export default function DashboardLayout({
+export default async function DashboardLayout({
     children,
 }: {
     children: React.ReactNode
 }) {
+    const user = await getCurrentUserAction()
+
     return (
         <SidebarProvider>
-            <AppSidebar />
+            <AppSidebar userRole={user?.role} />
             <SidebarInset>
                 <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
                     <SidebarTrigger className="-ml-1" />
