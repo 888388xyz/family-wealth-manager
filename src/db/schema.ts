@@ -80,6 +80,15 @@ export const balanceHistory = sqliteTable("balance_history", {
     createdAt: integer("created_at", { mode: "timestamp" }).default(sql`(unixepoch())`),
 });
 
+// --- 汇率缓存 ---
+
+export const exchangeRates = sqliteTable("exchange_rates", {
+    code: text("code").primaryKey(), // 货币代码，如 USD, HKD
+    rate: text("rate").notNull(), // 1 人民币 等于多少该币种 (或者是 1 该币种等于多少人民币，这里定义为 1该币种 = X CNY)
+    // 实际上方便计算，还是定义 1 XXX = X CNY
+    updatedAt: integer("updated_at", { mode: "timestamp" }).$onUpdate(() => new Date()),
+});
+
 // --- Relations ---
 
 export const bankAccountsRelations = relations(bankAccounts, ({ one, many }) => ({

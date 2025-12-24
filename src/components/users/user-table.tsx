@@ -49,7 +49,6 @@ export function UserTable({ users, currentUserId }: { users: User[]; currentUser
 
         setLoading(userId)
         try {
-            console.log("[UserTable] Calling deleteUserAction for:", userId)
             const result = await deleteUserAction(userId)
             if (result?.error) {
                 alert(result.error)
@@ -57,7 +56,6 @@ export function UserTable({ users, currentUserId }: { users: User[]; currentUser
                 alert("用户及相关数据已成功删除")
             }
         } catch (err) {
-            console.error("[UserTable] Delete failed:", err)
             alert("删除过程中出现错误，请刷新页面重试")
         } finally {
             setLoading(null)

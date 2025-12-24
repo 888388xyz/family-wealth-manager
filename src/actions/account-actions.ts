@@ -138,7 +138,6 @@ export async function deleteAccountAction(accountId: string) {
     if (!session?.user?.id) return { error: "未登录" }
 
     try {
-        console.log(`[DeleteAccount] Attempting to delete account ${accountId} by user ${session.user.id}`)
 
         // 获取账户信息以进行权限检查
         const account = await db.query.bankAccounts.findFirst({
@@ -146,7 +145,6 @@ export async function deleteAccountAction(accountId: string) {
         })
 
         if (!account) {
-            console.error(`[DeleteAccount] Account ${accountId} not found`)
             return { error: "账户不存在" }
         }
 
@@ -159,18 +157,16 @@ export async function deleteAccountAction(accountId: string) {
 
         // 权限校验：只能删除自己的账户，除非是管理员
         if (account.userId !== session.user.id && !isAdmin) {
-            console.error(`[DeleteAccount] Permission denied for user ${session.user.id} to delete account ${accountId}`)
             return { error: "无权删除他人账户" }
         }
 
         await db.delete(bankAccounts).where(eq(bankAccounts.id, accountId))
-        console.log(`[DeleteAccount] Successfully deleted account ${accountId}`)
 
         revalidatePath("/accounts")
         revalidatePath("/dashboard")
         return { success: true }
     } catch (err) {
-        console.error(`[DeleteAccount] Error:`, err)
+        console.error(err)
         return { error: "删除账户失败，可能存在数据关联限制" }
     }
 }

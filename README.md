@@ -4,6 +4,15 @@ An asset management system for families.
 
 ## Getting Started
 
+### Environment Variables
+
+Create a `.env.local` file in the root directory with the following variables:
+
+```bash
+AUTH_SECRET="your_generated_secret" # Generate with: npx auth secret
+DATABASE_URL="file:./sqlite.db"
+```
+
 ### Prerequisites
 
 - Node.js & npm/pnpm installed.

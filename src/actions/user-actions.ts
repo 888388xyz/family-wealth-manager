@@ -108,39 +108,33 @@ export async function updateUserRoleAction(userId: string, role: "ADMIN" | "MEMB
 export async function deleteUserAction(userId: string) {
     const session = await auth()
     if (!session?.user?.id) {
-        console.error("[DeleteUser] No session user found")
         return { error: "未登录" }
     }
 
-    console.log(`[DeleteUser] User ${session.user.id} (${session.user.email}) attempting to delete target user ${userId}`)
+
 
     const userRoleInfo = await db.query.users.findFirst({
         where: eq(users.id, session.user.id)
     })
 
-    console.log(`[DeleteUser] Current user role from DB: ${userRoleInfo?.role}`)
+
 
     if (userRoleInfo?.role !== "ADMIN") {
-        console.warn(`[DeleteUser] Permission denied: user is not an admin`)
         return { error: "无权限" }
     }
 
     // Can't delete self
     if (userId === session.user.id) {
-        console.warn(`[DeleteUser] Prevention: user attempted to delete themselves`)
         return { error: "不能删除自己" }
     }
 
     try {
-        console.log(`[DeleteUser] Executing DB delete for user ${userId}...`)
-        const result = await db.delete(users).where(eq(users.id, userId))
-        console.log(`[DeleteUser] DB delete result:`, result)
+        await db.delete(users).where(eq(users.id, userId))
 
-        console.log(`[DeleteUser] Successfully deleted user ${userId}, revalidating path /users`)
         revalidatePath("/users")
         return { success: true }
     } catch (err: any) {
-        console.error(`[DeleteUser] CRITICAL ERROR deleting user ${userId}:`, err)
+        console.error(err)
         return { error: `删除失败: ${err.message || '未知数据库错误'}` }
     }
 }
