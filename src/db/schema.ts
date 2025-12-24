@@ -1,5 +1,5 @@
-import { sqliteTable, text, integer, real } from "drizzle-orm/sqlite-core";
-import { sql } from "drizzle-orm";
+import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import { sql, relations } from "drizzle-orm";
 
 // --- Auth (NextAuth.js Standard Schema) ---
 
@@ -45,39 +45,50 @@ export const verificationTokens = sqliteTable("verificationToken", {
     expires: integer("expires", { mode: "timestamp_ms" }).notNull(),
 });
 
-// --- Application Logic ---
+// --- 银行账户 ---
 
-export const assets = sqliteTable("asset", {
+export const bankAccounts = sqliteTable("bank_account", {
     id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
     userId: text("userId")
         .notNull()
         .references(() => users.id, { onDelete: "cascade" }),
-    name: text("name").notNull(), // e.g., "CMB Savings"
-    type: text("type", {
-        enum: ["CASH", "REAL_ESTATE", "STOCK", "FUND", "INSURANCE", "SAVINGS", "OTHER"]
-    }).notNull(),
-    value: integer("value").notNull(), // stored in cents
+    bankName: text("bankName").notNull(), // 银行名称
+    accountName: text("accountName").notNull(), // 账户名称，如：工资卡
+    accountType: text("accountType", {
+        enum: ["CHECKING", "SAVINGS", "MONEY_MARKET", "CREDIT", "WEALTH", "OTHER"]
+    }).notNull().default("CHECKING"),
+    balance: integer("balance").notNull().default(0), // 当前余额（分）
     currency: text("currency").default("CNY"),
-    purchasePrice: integer("purchasePrice"), // stored in cents
-    purchaseDate: integer("purchaseDate", { mode: "timestamp" }),
     notes: text("notes"),
     createdAt: integer("created_at", { mode: "timestamp" }).default(sql`(unixepoch())`),
     updatedAt: integer("updated_at", { mode: "timestamp" }).$onUpdate(() => new Date()),
 });
 
-export const investments = sqliteTable("investment", {
+// --- 余额历史（用于图表） ---
+
+export const balanceHistory = sqliteTable("balance_history", {
     id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
-    userId: text("userId")
+    accountId: text("accountId")
         .notNull()
-        .references(() => users.id, { onDelete: "cascade" }),
-    name: text("name").notNull(), // e.g., "Kweichow Moutai"
-    symbol: text("symbol"), // e.g., "600519"
-    type: text("type", { enum: ["STOCK", "FUND", "BOND", "OTHER"] }).notNull(),
-    quantity: real("quantity").notNull(), // e.g., 100.5 shares
-    costBasis: integer("costBasis").notNull(), // Total cost in cents
-    currentPrice: integer("currentPrice").notNull(), // Per unit in cents (updated manually or auto)
-    marketValue: integer("marketValue").notNull(), // Cache: qty * currentPrice (cents)
-    purchaseDate: integer("purchaseDate", { mode: "timestamp" }),
+        .references(() => bankAccounts.id, { onDelete: "cascade" }),
+    balance: integer("balance").notNull(), // 余额快照（分）
+    recordedAt: integer("recorded_at", { mode: "timestamp" }).default(sql`(unixepoch())`),
     createdAt: integer("created_at", { mode: "timestamp" }).default(sql`(unixepoch())`),
-    updatedAt: integer("updated_at", { mode: "timestamp" }).$onUpdate(() => new Date()),
 });
+
+// --- Relations ---
+
+export const bankAccountsRelations = relations(bankAccounts, ({ one, many }) => ({
+    user: one(users, {
+        fields: [bankAccounts.userId],
+        references: [users.id],
+    }),
+    history: many(balanceHistory),
+}));
+
+export const balanceHistoryRelations = relations(balanceHistory, ({ one }) => ({
+    account: one(bankAccounts, {
+        fields: [balanceHistory.accountId],
+        references: [bankAccounts.id],
+    }),
+}));

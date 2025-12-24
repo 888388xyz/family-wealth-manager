@@ -21,29 +21,29 @@ export function RegisterForm() {
     return (
         <Card>
             <CardHeader>
-                <CardTitle>Sign Up</CardTitle>
-                <CardDescription>Create a new account for your family member</CardDescription>
+                <CardTitle>注册</CardTitle>
+                <CardDescription>创建您的家庭财富管家账号</CardDescription>
             </CardHeader>
             <CardContent>
                 <form action={handleSubmit}>
                     <div className="flex flex-col gap-6">
                         <div className="grid gap-2">
-                            <Label htmlFor="email">Email</Label>
-                            <Input id="email" name="email" type="email" placeholder="m@example.com" required />
+                            <Label htmlFor="email">邮箱</Label>
+                            <Input id="email" name="email" type="email" placeholder="example@email.com" required />
                         </div>
                         <div className="grid gap-2">
-                            <Label htmlFor="password">Password</Label>
+                            <Label htmlFor="password">密码</Label>
                             <Input id="password" name="password" type="password" required />
                         </div>
                         {error && <p className="text-red-500 text-sm">{error}</p>}
                         <Button type="submit" className="w-full">
-                            Register
+                            注册
                         </Button>
                     </div>
                     <div className="mt-4 text-center text-sm">
-                        Already have an account?{" "}
+                        已有账号？{" "}
                         <Link href="/login" className="underline underline-offset-4">
-                            Sign in
+                            立即登录
                         </Link>
                     </div>
                 </form>

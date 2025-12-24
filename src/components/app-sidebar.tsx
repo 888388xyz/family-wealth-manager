@@ -1,3 +1,5 @@
+"use client"
+
 import {
     Sidebar,
     SidebarContent,
@@ -10,23 +12,24 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { LayoutDashboard, Wallet, TrendingUp, Users, Settings, LogOut } from "lucide-react"
+import { LayoutDashboard, Wallet, Users, Settings, LogOut } from "lucide-react"
 import Link from "next/link"
+import { signOut } from "next-auth/react"
 
-// Menu items.
+// 导航菜单
 const items = [
     {
-        title: "Dashboard",
+        title: "仪表盘",
         url: "/dashboard",
         icon: LayoutDashboard,
     },
     {
-        title: "Assets",
-        url: "/assets",
+        title: "账户管理",
+        url: "/accounts",
         icon: Wallet,
     },
     {
-        title: "Members",
+        title: "家庭成员",
         url: "/members",
         icon: Users,
     },
@@ -38,12 +41,12 @@ export function AppSidebar() {
             <SidebarHeader>
                 <div className="flex items-center gap-2 px-4 py-2">
                     <div className="h-6 w-6 rounded bg-primary" />
-                    <span className="font-semibold">Wealth Manager</span>
+                    <span className="font-semibold">家庭财富管家</span>
                 </div>
             </SidebarHeader>
             <SidebarContent>
                 <SidebarGroup>
-                    <SidebarGroupLabel>Application</SidebarGroupLabel>
+                    <SidebarGroupLabel>功能</SidebarGroupLabel>
                     <SidebarGroupContent>
                         <SidebarMenu>
                             {items.map((item) => (
@@ -65,13 +68,16 @@ export function AppSidebar() {
                     <SidebarMenuItem>
                         <SidebarMenuButton>
                             <Settings />
-                            <span>Settings</span>
+                            <span>设置</span>
                         </SidebarMenuButton>
                     </SidebarMenuItem>
                     <SidebarMenuItem>
-                        <SidebarMenuButton className="text-destructive hover:text-destructive">
+                        <SidebarMenuButton
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => signOut({ callbackUrl: "/login" })}
+                        >
                             <LogOut />
-                            <span>Sign Out</span>
+                            <span>退出登录</span>
                         </SidebarMenuButton>
                     </SidebarMenuItem>
                 </SidebarMenu>

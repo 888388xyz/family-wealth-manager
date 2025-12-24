@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm"
 import { users } from "@/db/schema"
 import { verifyPassword } from "@/lib/hash"
 import { z } from "zod"
+import authConfig from "./auth.config"
 
 const signInSchema = z.object({
     email: z.string().email(),
@@ -15,9 +16,7 @@ const signInSchema = z.object({
 export const { handlers, auth, signIn, signOut } = NextAuth({
     adapter: DrizzleAdapter(db),
     session: { strategy: "jwt" }, // Credentials provider requires JWT strategy
-    pages: {
-        signIn: "/login",
-    },
+    ...authConfig,
     providers: [
         Credentials({
             credentials: {
@@ -43,12 +42,4 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             },
         }),
     ],
-    callbacks: {
-        async session({ session, token }) {
-            if (token.sub && session.user) {
-                session.user.id = token.sub
-            }
-            return session
-        }
-    }
 })
