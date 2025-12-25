@@ -111,30 +111,75 @@ export async function deleteUserAction(userId: string) {
         return { error: "未登录" }
     }
 
-
-
     const userRoleInfo = await db.query.users.findFirst({
         where: eq(users.id, session.user.id)
     })
-
-
 
     if (userRoleInfo?.role !== "ADMIN") {
         return { error: "无权限" }
     }
 
-    // Can't delete self
     if (userId === session.user.id) {
         return { error: "不能删除自己" }
     }
 
     try {
         await db.delete(users).where(eq(users.id, userId))
-
         revalidatePath("/users")
         return { success: true }
     } catch (err: any) {
         console.error(err)
         return { error: `删除失败: ${err.message || '未知数据库错误'}` }
+    }
+}
+
+export async function resetUserPasswordAction(userId: string, newPassword: string) {
+    const session = await auth()
+    if (!session?.user?.id) return { error: "未登录" }
+
+    if (!(await isAdmin())) {
+        return { error: "无权限" }
+    }
+
+    if (!newPassword || newPassword.length < 6) {
+        return { error: "密码长度至少为6位" }
+    }
+
+    try {
+        const hashedPassword = await hashPassword(newPassword)
+        await db.update(users)
+            .set({ password: hashedPassword })
+            .where(eq(users.id, userId))
+
+        revalidatePath("/users")
+        return { success: true }
+    } catch (err) {
+        console.error("[ResetPassword] Error:", err)
+        return { error: "重置密码失败" }
+    }
+}
+
+export async function updateUserNameAction(userId: string, name: string) {
+    const session = await auth()
+    if (!session?.user?.id) return { error: "未登录" }
+
+    if (!(await isAdmin())) {
+        return { error: "无权限" }
+    }
+
+    if (!name || name.trim().length === 0) {
+        return { error: "昵称不能为空" }
+    }
+
+    try {
+        await db.update(users)
+            .set({ name: name.trim() })
+            .where(eq(users.id, userId))
+
+        revalidatePath("/users")
+        return { success: true }
+    } catch (err) {
+        console.error("[UpdateUserName] Error:", err)
+        return { error: "修改昵称失败" }
     }
 }

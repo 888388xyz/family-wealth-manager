@@ -5,7 +5,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { signIn } from "next-auth/react"
-import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 
@@ -45,13 +44,9 @@ export function LoginForm() {
                             <Input id="email" name="email" type="email" placeholder="example@email.com" required />
                         </div>
                         <div className="grid gap-2">
-                            <div className="flex items-center">
-                                <Label htmlFor="password">密码</Label>
-                                <Link href="#" className="ml-auto inline-block text-sm underline-offset-4 hover:underline">
-                                    忘记密码？
-                                </Link>
-                            </div>
+                            <Label htmlFor="password">密码</Label>
                             <Input id="password" name="password" type="password" required />
+                            <p className="text-xs text-muted-foreground">忘记密码请联系管理员重置</p>
                         </div>
                         {error && <p className="text-red-500 text-sm">{error}</p>}
                         <Button type="submit" className="w-full">
