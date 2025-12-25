@@ -1,162 +1,112 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-    DialogFooter,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { addAccountAction } from "@/actions/account-actions"
-import { BANKS, PRODUCT_TYPES, CURRENCIES } from "@/lib/constants"
+import { getBanksAction, getProductTypesAction, getCurrenciesAction } from "@/actions/config-actions"
 import { Plus } from "lucide-react"
+
+interface Bank { id: string; name: string }
+interface ProductType { id: string; value: string; label: string }
+interface Currency { id: string; code: string; label: string }
 
 export function AddAccountDialog() {
     const [open, setOpen] = useState(false)
+    const [banks, setBanks] = useState<Bank[]>([])
+    const [productTypes, setProductTypes] = useState<ProductType[]>([])
+    const [currencies, setCurrencies] = useState<Currency[]>([])
+    const [loading, setLoading] = useState(true)
+
+    useEffect(() => {
+        if (open) {
+            setLoading(true)
+            Promise.all([getBanksAction(), getProductTypesAction(), getCurrenciesAction()])
+                .then(([b, p, c]) => {
+                    setBanks(b)
+                    setProductTypes(p)
+                    setCurrencies(c)
+                })
+                .finally(() => setLoading(false))
+        }
+    }, [open])
 
     async function handleSubmit(formData: FormData) {
         const res = await addAccountAction(formData)
-        if (res?.success) {
-            setOpen(false)
-        } else {
-            alert(JSON.stringify(res?.error))
-        }
+        if (res?.success) setOpen(false)
+        else alert(JSON.stringify(res?.error))
     }
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button>
-                    <Plus className="mr-2 h-4 w-4" /> 添加账户
-                </Button>
+                <Button><Plus className="mr-2 h-4 w-4" /> 添加账户</Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[500px]">
                 <DialogHeader>
                     <DialogTitle>添加新账户</DialogTitle>
-                    <DialogDescription>
-                        填写账户信息，点击保存添加到列表。
-                    </DialogDescription>
+                    <DialogDescription>填写账户信息，点击保存添加到列表。</DialogDescription>
                 </DialogHeader>
-                <form action={handleSubmit} className="grid gap-4 py-4">
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="bankName" className="text-right">
-                            平台
-                        </Label>
-                        <Select name="bankName" required>
-                            <SelectTrigger className="col-span-3">
-                                <SelectValue placeholder="选择银行/平台" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {BANKS.map((bank) => (
-                                    <SelectItem key={bank.value} value={bank.value}>
-                                        {bank.label}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="productType" className="text-right">
-                            产品类型
-                        </Label>
-                        <Select name="productType" defaultValue="DEMAND_DEPOSIT">
-                            <SelectTrigger className="col-span-3">
-                                <SelectValue placeholder="选择产品类型" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {PRODUCT_TYPES.map((type) => (
-                                    <SelectItem key={type.value} value={type.value}>
-                                        {type.label}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="accountName" className="text-right">
-                            产品名
-                        </Label>
-                        <Input
-                            id="accountName"
-                            name="accountName"
-                            placeholder="如：博时主题基金"
-                            className="col-span-3"
-                            required
-                        />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="currency" className="text-right">
-                            货币
-                        </Label>
-                        <Select name="currency" defaultValue="CNY">
-                            <SelectTrigger className="col-span-3">
-                                <SelectValue placeholder="选择货币" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {CURRENCIES.map((curr) => (
-                                    <SelectItem key={curr.value} value={curr.value}>
-                                        {curr.label}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="balance" className="text-right">
-                            余额
-                        </Label>
-                        <Input
-                            id="balance"
-                            name="balance"
-                            type="number"
-                            step="0.01"
-                            placeholder="0.00"
-                            className="col-span-3"
-                            required
-                        />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="expectedYield" className="text-right">
-                            收益率%
-                        </Label>
-                        <Input
-                            id="expectedYield"
-                            name="expectedYield"
-                            type="number"
-                            step="0.01"
-                            placeholder="如 2.50"
-                            className="col-span-3"
-                        />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="notes" className="text-right">
-                            备注
-                        </Label>
-                        <Textarea
-                            id="notes"
-                            name="notes"
-                            placeholder="可选"
-                            className="col-span-3"
-                        />
-                    </div>
-                    <DialogFooter>
-                        <Button type="submit">保存</Button>
-                    </DialogFooter>
-                </form>
+                {loading ? (
+                    <div className="py-8 text-center text-muted-foreground">加载中...</div>
+                ) : (
+                    <form action={handleSubmit} className="grid gap-4 py-4">
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="bankName" className="text-right">平台</Label>
+                            <Select name="bankName" required>
+                                <SelectTrigger className="col-span-3"><SelectValue placeholder="选择银行/平台" /></SelectTrigger>
+                                <SelectContent>
+                                    {banks.map((bank) => (
+                                        <SelectItem key={bank.id} value={bank.name}>{bank.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="productType" className="text-right">产品类型</Label>
+                            <Select name="productType" defaultValue={productTypes[0]?.value}>
+                                <SelectTrigger className="col-span-3"><SelectValue placeholder="选择产品类型" /></SelectTrigger>
+                                <SelectContent>
+                                    {productTypes.map((type) => (
+                                        <SelectItem key={type.id} value={type.value}>{type.label}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="accountName" className="text-right">产品名</Label>
+                            <Input id="accountName" name="accountName" placeholder="如：博时主题基金" className="col-span-3" required />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="currency" className="text-right">货币</Label>
+                            <Select name="currency" defaultValue={currencies[0]?.code || "CNY"}>
+                                <SelectTrigger className="col-span-3"><SelectValue placeholder="选择货币" /></SelectTrigger>
+                                <SelectContent>
+                                    {currencies.map((curr) => (
+                                        <SelectItem key={curr.id} value={curr.code}>{curr.label} ({curr.code})</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="balance" className="text-right">余额</Label>
+                            <Input id="balance" name="balance" type="number" step="0.01" placeholder="0.00" className="col-span-3" required />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="expectedYield" className="text-right">收益率%</Label>
+                            <Input id="expectedYield" name="expectedYield" type="number" step="0.01" placeholder="如 2.50" className="col-span-3" />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="notes" className="text-right">备注</Label>
+                            <Textarea id="notes" name="notes" placeholder="可选" className="col-span-3" />
+                        </div>
+                        <DialogFooter><Button type="submit">保存</Button></DialogFooter>
+                    </form>
+                )}
             </DialogContent>
         </Dialog>
     )

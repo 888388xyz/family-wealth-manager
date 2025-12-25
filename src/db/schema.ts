@@ -88,6 +88,31 @@ export const exchangeRates = pgTable("exchange_rates", {
     updatedAt: timestamp("updated_at", { mode: "date" }).$onUpdate(() => new Date()),
 });
 
+// --- 系统配置表 ---
+
+export const systemBanks = pgTable("system_banks", {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    name: text("name").notNull().unique(),
+    sortOrder: integer("sort_order").default(0),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
+});
+
+export const systemProductTypes = pgTable("system_product_types", {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    value: text("value").notNull().unique(),
+    label: text("label").notNull(),
+    sortOrder: integer("sort_order").default(0),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
+});
+
+export const systemCurrencies = pgTable("system_currencies", {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    code: text("code").notNull().unique(),
+    label: text("label").notNull(),
+    sortOrder: integer("sort_order").default(0),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
+});
+
 // --- Relations ---
 
 export const bankAccountsRelations = relations(bankAccounts, ({ one, many }) => ({

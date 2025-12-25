@@ -1,5 +1,3 @@
-"use client"
-
 import {
     Sidebar,
     SidebarContent,
@@ -12,22 +10,13 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { LayoutDashboard, Wallet, Users, Settings, LogOut, ShieldCheck } from "lucide-react"
+import { LayoutDashboard, Wallet, Settings, LogOut, ShieldCheck, Cog } from "lucide-react"
 import Link from "next/link"
 import { signOut } from "next-auth/react"
 
-// 导航菜单
 const items = [
-    {
-        title: "仪表盘",
-        url: "/dashboard",
-        icon: LayoutDashboard,
-    },
-    {
-        title: "账户管理",
-        url: "/accounts",
-        icon: Wallet,
-    },
+    { title: "仪表盘", url: "/dashboard", icon: LayoutDashboard },
+    { title: "账户管理", url: "/accounts", icon: Wallet },
 ]
 
 interface AppSidebarProps {
@@ -53,10 +42,7 @@ export function AppSidebar({ userRole }: AppSidebarProps) {
                             {items.map((item) => (
                                 <SidebarMenuItem key={item.title}>
                                     <SidebarMenuButton asChild>
-                                        <Link href={item.url}>
-                                            <item.icon />
-                                            <span>{item.title}</span>
-                                        </Link>
+                                        <Link href={item.url}><item.icon /><span>{item.title}</span></Link>
                                     </SidebarMenuButton>
                                 </SidebarMenuItem>
                             ))}
@@ -70,10 +56,12 @@ export function AppSidebar({ userRole }: AppSidebarProps) {
                             <SidebarMenu>
                                 <SidebarMenuItem>
                                     <SidebarMenuButton asChild>
-                                        <Link href="/users">
-                                            <ShieldCheck />
-                                            <span>用户管理</span>
-                                        </Link>
+                                        <Link href="/users"><ShieldCheck /><span>用户管理</span></Link>
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+                                <SidebarMenuItem>
+                                    <SidebarMenuButton asChild>
+                                        <Link href="/config"><Cog /><span>系统配置</span></Link>
                                     </SidebarMenuButton>
                                 </SidebarMenuItem>
                             </SidebarMenu>
@@ -85,19 +73,12 @@ export function AppSidebar({ userRole }: AppSidebarProps) {
                 <SidebarMenu>
                     <SidebarMenuItem>
                         <SidebarMenuButton asChild>
-                            <Link href="/settings">
-                                <Settings />
-                                <span>设置</span>
-                            </Link>
+                            <Link href="/settings"><Settings /><span>设置</span></Link>
                         </SidebarMenuButton>
                     </SidebarMenuItem>
                     <SidebarMenuItem>
-                        <SidebarMenuButton
-                            className="text-destructive hover:text-destructive"
-                            onClick={() => signOut({ callbackUrl: "/login" })}
-                        >
-                            <LogOut />
-                            <span>退出登录</span>
+                        <SidebarMenuButton className="text-destructive hover:text-destructive" onClick={() => signOut({ callbackUrl: "/login" })}>
+                            <LogOut /><span>退出登录</span>
                         </SidebarMenuButton>
                     </SidebarMenuItem>
                 </SidebarMenu>
