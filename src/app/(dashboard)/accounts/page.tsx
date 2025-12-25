@@ -1,15 +1,17 @@
 import { getAccountsAction } from "@/actions/account-actions"
 import { getProductTypesAction } from "@/actions/config-actions"
+import { getExchangeRatesAction } from "@/actions/currency-actions"
 import { AccountTable } from "@/components/accounts/account-table"
 import { AddAccountDialog } from "@/components/accounts/add-account-dialog"
 import { redirect } from "next/navigation"
 import { getCurrentUserAction } from "@/actions/settings-actions"
 
 export default async function AccountsPage() {
-    const [accounts, user, productTypes] = await Promise.all([
+    const [accounts, user, productTypes, exchangeRates] = await Promise.all([
         getAccountsAction(),
         getCurrentUserAction(),
-        getProductTypesAction()
+        getProductTypesAction(),
+        getExchangeRatesAction()
     ])
 
     if (!accounts || !user) {
@@ -18,8 +20,16 @@ export default async function AccountsPage() {
 
     const isAdmin = user.role === "ADMIN"
 
-    // 计算总余额
-    const totalBalance = accounts.reduce((sum, acc) => sum + acc.balance, 0)
+    // 汇率映射
+    const ratesMap = new Map(exchangeRates.map(r => [r.code, parseFloat(r.rate)]))
+    ratesMap.set("CNY", 1.0)
+
+    // 计算折算后的总余额（按汇率转换为CNY）
+    const totalBalanceInCNY = accounts.reduce((sum, acc) => {
+        const currency = acc.currency || "CNY"
+        const rate = ratesMap.get(currency) || 1.0
+        return sum + (currency === "CNY" ? acc.balance : acc.balance * rate)
+    }, 0)
 
     return (
         <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
@@ -27,7 +37,7 @@ export default async function AccountsPage() {
                 <div>
                     <h2 className="text-3xl font-bold tracking-tight">账户管理</h2>
                     <p className="text-muted-foreground">
-                        共 {accounts.length} 个账户，总余额 ¥{(totalBalance / 100).toLocaleString("zh-CN", { minimumFractionDigits: 2 })}
+                        共 {accounts.length} 个账户，总资产 ¥{(totalBalanceInCNY / 100).toLocaleString("zh-CN", { minimumFractionDigits: 2 })} (折算CNY)
                     </p>
                 </div>
                 <AddAccountDialog />
