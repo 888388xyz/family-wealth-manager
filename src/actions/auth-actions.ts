@@ -10,6 +10,7 @@ import { signIn } from "@/auth"
 import { logAudit } from "@/lib/audit-logger"
 import { headers } from "next/headers"
 import { AuthError } from "next-auth"
+import { verifyTOTP } from "@/lib/totp"
 
 export async function registerAction(formData: FormData) {
     return { error: "注册功能已关闭，请联系管理员开通账号" }
@@ -34,8 +35,14 @@ async function getClientIP(): Promise<string> {
 
 /**
  * 带频率限制的登录操作
+ * 支持两步验证流程
  */
-export async function loginAction(formData: FormData): Promise<{ success: boolean; error?: string }> {
+export async function loginAction(formData: FormData): Promise<{ 
+    success: boolean; 
+    error?: string;
+    requires2FA?: boolean;
+    tempToken?: string;
+}> {
     const email = formData.get("email") as string
     const password = formData.get("password") as string
 
@@ -63,8 +70,59 @@ export async function loginAction(formData: FormData): Promise<{ success: boolea
         }
     }
 
+    // 先检查用户是否存在并验证密码
+    const user = await db.query.users.findFirst({
+        where: eq(users.email, email)
+    })
+
+    if (!user || !user.password) {
+        await logAudit({
+            userId: null,
+            action: 'LOGIN_FAILED',
+            targetType: 'auth',
+            details: { email, reason: '用户不存在或无密码' },
+        })
+        return { success: false, error: "邮箱或密码错误" }
+    }
+
+    const isValid = await verifyPassword(password, user.password)
+    if (!isValid) {
+        await logAudit({
+            userId: user.id,
+            action: 'LOGIN_FAILED',
+            targetType: 'auth',
+            targetId: user.id,
+            details: { email, reason: '密码错误' },
+        })
+        return { success: false, error: "邮箱或密码错误" }
+    }
+
+    // 检查是否启用了 2FA
+    if (user.twoFactorEnabled && user.twoFactorSecret) {
+        // 生成临时 token 用于 2FA 验证
+        const tempToken = Buffer.from(JSON.stringify({
+            email,
+            password,
+            timestamp: Date.now()
+        })).toString('base64')
+
+        await logAudit({
+            userId: user.id,
+            action: 'LOGIN_2FA_REQUIRED',
+            targetType: 'auth',
+            targetId: user.id,
+            details: { email },
+        })
+
+        return { 
+            success: false, 
+            requires2FA: true,
+            tempToken
+        }
+    }
+
     try {
-        // 尝试登录
+        // 尝试登录（无 2FA）
         await signIn("credentials", {
             email,
             password,
@@ -82,5 +140,94 @@ export async function loginAction(formData: FormData): Promise<{ success: boolea
         }
         // 其他错误
         throw error
+    }
+}
+
+/**
+ * 验证 TOTP 码并完成登录
+ */
+export async function verifyTOTPAction(
+    tempToken: string, 
+    totpCode: string
+): Promise<{ success: boolean; error?: string }> {
+    if (!tempToken || !totpCode) {
+        return { success: false, error: "请输入验证码" }
+    }
+
+    // 验证码格式检查
+    if (!/^\d{6}$/.test(totpCode)) {
+        return { success: false, error: "验证码必须是6位数字" }
+    }
+
+    // 获取客户端 IP 用于频率限制
+    const clientIP = await getClientIP()
+    const rateLimitKey = `login:${clientIP}`
+
+    // 检查频率限制
+    const rateLimitResult = loginLimiter.check(rateLimitKey)
+    if (!rateLimitResult) {
+        return { 
+            success: false, 
+            error: "验证尝试过于频繁，请5分钟后再试" 
+        }
+    }
+
+    try {
+        // 解析临时 token
+        const tokenData = JSON.parse(Buffer.from(tempToken, 'base64').toString())
+        const { email, password, timestamp } = tokenData
+
+        // 检查 token 是否过期（5分钟有效期）
+        if (Date.now() - timestamp > 5 * 60 * 1000) {
+            return { success: false, error: "验证已过期，请重新登录" }
+        }
+
+        // 获取用户信息
+        const user = await db.query.users.findFirst({
+            where: eq(users.email, email)
+        })
+
+        if (!user || !user.twoFactorSecret) {
+            return { success: false, error: "验证失败" }
+        }
+
+        // 验证 TOTP 码
+        const isValidTOTP = verifyTOTP(user.twoFactorSecret, totpCode)
+        if (!isValidTOTP) {
+            await logAudit({
+                userId: user.id,
+                action: 'LOGIN_2FA_FAILED',
+                targetType: 'auth',
+                targetId: user.id,
+                details: { email, reason: 'TOTP验证码错误' },
+            })
+            return { success: false, error: "验证码错误，请重试" }
+        }
+
+        // TOTP 验证通过，完成登录
+        await signIn("credentials", {
+            email,
+            password,
+            redirect: false,
+        })
+
+        // 登录成功，重置频率限制计数
+        loginLimiter.reset(rateLimitKey)
+
+        await logAudit({
+            userId: user.id,
+            action: 'LOGIN_SUCCESS',
+            targetType: 'auth',
+            targetId: user.id,
+            details: { email, with2FA: true },
+        })
+
+        return { success: true }
+    } catch (error) {
+        if (error instanceof AuthError) {
+            return { success: false, error: "登录失败" }
+        }
+        console.error('2FA verification error:', error)
+        return { success: false, error: "验证失败，请重试" }
     }
 }

@@ -1,15 +1,11 @@
 import { getAccountsAction } from "@/actions/account-actions"
 import { getExchangeRatesAction } from "@/actions/currency-actions"
 import { getProductTypesAction } from "@/actions/config-actions"
-import { getDailySnapshotsAction } from "@/actions/snapshot-actions"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { DollarSign, Wallet, TrendingUp, Globe, RefreshCw } from "lucide-react"
+import { DollarSign, Wallet, Globe, RefreshCw } from "lucide-react"
 import { redirect } from "next/navigation"
 import { auth } from "@/auth"
 import { DistributionCharts } from "@/components/dashboard/distribution-charts"
-import { TrendChart } from "@/components/dashboard/trend-chart"
-import { YieldAnalysis } from "@/components/dashboard/yield-analysis"
-import { HistoricalComparison } from "@/components/dashboard/historical-comparison"
 
 function formatCurrency(cents: number, currency: string = "CNY") {
     return (cents / 100).toLocaleString("zh-CN", {
@@ -21,11 +17,10 @@ function formatCurrency(cents: number, currency: string = "CNY") {
 
 export default async function DashboardPage() {
     const session = await auth()
-    const [accounts, exchangeRates, productTypes, allSnapshots] = await Promise.all([
+    const [accounts, exchangeRates, productTypes] = await Promise.all([
         getAccountsAction(),
         getExchangeRatesAction(),
         getProductTypesAction(),
-        getDailySnapshotsAction(-1), // 获取所有历史快照用于对比
     ])
 
     if (!accounts || !session?.user) {
@@ -85,19 +80,15 @@ export default async function DashboardPage() {
 
     return (
         <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h2 className="text-3xl font-bold tracking-tight">仪表面板</h2>
-                    <p className="text-sm text-muted-foreground">家庭资产总览</p>
-                </div>
-                {hasOwnerInfo && (
+            {hasOwnerInfo && (
+                <div className="flex items-center justify-end">
                     <span className="text-xs font-medium bg-primary/10 text-primary px-2 py-1 rounded-full border border-primary/20">
                         管理员视图 (家族汇总)
                     </span>
-                )}
-            </div>
+                </div>
+            )}
 
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 md:grid-cols-3">
                 <Card className="bg-primary/5 border-primary/20">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">总资产 (折算 CNY)</CardTitle>
@@ -128,16 +119,6 @@ export default async function DashboardPage() {
                         <p className="text-xs text-muted-foreground">包含 {Object.keys(groupedByCurrency).filter(c => c !== "CNY").join(", ") || "无"}</p>
                     </CardContent>
                 </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">平均余额 (CNY)</CardTitle>
-                        <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{accountCount > 0 ? formatCurrency(Math.round(totalBalanceInCNY / accountCount)) : "¥0.00"}</div>
-                        <p className="text-xs text-muted-foreground">单个账户平均价值</p>
-                    </CardContent>
-                </Card>
             </div>
 
             {usedRates.length > 0 && (
@@ -163,25 +144,6 @@ export default async function DashboardPage() {
                     </CardContent>
                 </Card>
             )}
-
-            <TrendChart />
-
-            <YieldAnalysis 
-                accounts={accounts.map(acc => ({
-                    id: acc.id,
-                    accountName: acc.accountName,
-                    bankName: acc.bankName,
-                    balance: acc.balance,
-                    expectedYield: acc.expectedYield,
-                    currency: acc.currency,
-                }))}
-                ratesMap={ratesMap}
-            />
-
-            <HistoricalComparison 
-                currentBalance={totalBalanceInCNY}
-                snapshots={allSnapshots || []}
-            />
 
             <DistributionCharts
                 currencyData={Object.entries(groupedByCurrency)

@@ -11,6 +11,8 @@ export const users = pgTable("user", {
     image: text("image"),
     password: text("password"),
     role: text("role", { enum: ["ADMIN", "MEMBER"] }).default("MEMBER"),
+    twoFactorSecret: text("two_factor_secret"),
+    twoFactorEnabled: boolean("two_factor_enabled").default(false),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
 });
 

@@ -28,7 +28,7 @@ interface AppSidebarProps {
     version?: string
 }
 
-export function AppSidebar({ userRole, userName, userEmail, version = "0.1.0" }: AppSidebarProps) {
+export function AppSidebar({ userRole, userName, userEmail, version = "0.3.0" }: AppSidebarProps) {
     const isAdmin = userRole === "ADMIN"
 
     return (

@@ -9,6 +9,7 @@ import { updateProfileAction, changePasswordAction } from "@/actions/settings-ac
 import { exportDataAction } from "@/actions/backup-actions"
 import { Badge } from "@/components/ui/badge"
 import { Download } from "lucide-react"
+import { TwoFactorSetup } from "./two-factor-setup"
 
 interface User {
     id: string
@@ -141,6 +142,9 @@ export function SettingsForm({ user }: { user: User }) {
                     </form>
                 </CardContent>
             </Card>
+
+            {/* 两步验证 */}
+            <TwoFactorSetup />
 
             {/* 数据备份 */}
             <Card>

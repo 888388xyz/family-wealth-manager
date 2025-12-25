@@ -7,6 +7,8 @@ import { auditLogs } from "@/db/schema"
 export type AuditAction =
     | 'LOGIN_SUCCESS'
     | 'LOGIN_FAILED'
+    | 'LOGIN_2FA_REQUIRED'
+    | 'LOGIN_2FA_FAILED'
     | 'ACCOUNT_CREATE'
     | 'ACCOUNT_UPDATE'
     | 'ACCOUNT_DELETE'
@@ -16,6 +18,8 @@ export type AuditAction =
     | 'USER_ROLE_UPDATE'
     | 'PASSWORD_RESET'
     | 'USER_NAME_UPDATE'
+    | '2FA_ENABLED'
+    | '2FA_DISABLED'
 
 /**
  * 审计目标类型
@@ -61,6 +65,8 @@ export function getActionDescription(action: AuditAction): string {
     const descriptions: Record<AuditAction, string> = {
         LOGIN_SUCCESS: '登录成功',
         LOGIN_FAILED: '登录失败',
+        LOGIN_2FA_REQUIRED: '需要两步验证',
+        LOGIN_2FA_FAILED: '两步验证失败',
         ACCOUNT_CREATE: '创建账户',
         ACCOUNT_UPDATE: '更新账户',
         ACCOUNT_DELETE: '删除账户',
@@ -70,6 +76,8 @@ export function getActionDescription(action: AuditAction): string {
         USER_ROLE_UPDATE: '修改用户角色',
         PASSWORD_RESET: '重置密码',
         USER_NAME_UPDATE: '修改用户昵称',
+        '2FA_ENABLED': '启用两步验证',
+        '2FA_DISABLED': '禁用两步验证',
     }
     return descriptions[action] || action
 }

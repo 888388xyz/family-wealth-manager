@@ -4,12 +4,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Trash2, Check, X, Pencil, ArrowUpDown, ArrowUp, ArrowDown, Search, Settings2 } from "lucide-react"
+import { Trash2, Check, X, Pencil, ArrowUpDown, ArrowUp, ArrowDown, Search, Settings2, Copy } from "lucide-react"
 import { deleteAccountAction, updateBalanceAction } from "@/actions/account-actions"
 import { useState, useEffect, useMemo } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
 import { EditAccountDialog } from "./edit-account-dialog"
+import { AddAccountDialog } from "./add-account-dialog"
+import { createCloneData, type CloneData } from "@/lib/account-utils"
 
 interface Account {
     id: string
@@ -85,6 +87,8 @@ export function AccountTable({
     const [sortDirection, setSortDirection] = useState<SortDirection>(null)
     const [editDialogOpen, setEditDialogOpen] = useState(false)
     const [editingAccount, setEditingAccount] = useState<Account | null>(null)
+    const [cloneDialogOpen, setCloneDialogOpen] = useState(false)
+    const [cloneData, setCloneData] = useState<CloneData | null>(null)
 
     // Initialize filters from URL search params
     useEffect(() => {
@@ -201,6 +205,11 @@ export function AccountTable({
         setEditingAccount(account)
         setEditDialogOpen(true)
     }
+    const handleClone = (account: Account) => {
+        const data = createCloneData(account)
+        setCloneData(data)
+        setCloneDialogOpen(true)
+    }
     const clearFilters = () => { 
         setSearchText(""); 
         setFilterBank("全部"); 
@@ -295,6 +304,9 @@ export function AccountTable({
                                 </TableCell>
                                 <TableCell className="text-right text-muted-foreground">{formatYield(account.expectedYield)}</TableCell>
                                 <TableCell className="text-right">
+                                    <Button variant="ghost" size="icon" onClick={() => handleClone(account)} title="克隆账户">
+                                        <Copy className="h-4 w-4 text-muted-foreground" />
+                                    </Button>
                                     <Button variant="ghost" size="icon" onClick={() => handleOpenEditDialog(account)}>
                                         <Settings2 className="h-4 w-4 text-muted-foreground" />
                                     </Button>
@@ -321,6 +333,16 @@ export function AccountTable({
                     banks={banks}
                     productTypes={productTypes}
                     currencies={currencies}
+                />
+            )}
+            {cloneData && (
+                <AddAccountDialog
+                    cloneFrom={cloneData}
+                    open={cloneDialogOpen}
+                    onOpenChange={(open) => {
+                        setCloneDialogOpen(open)
+                        if (!open) setCloneData(null)
+                    }}
                 />
             )}
         </div>
