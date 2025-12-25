@@ -1,12 +1,16 @@
 import { getAccountsAction } from "@/actions/account-actions"
+import { getProductTypesAction } from "@/actions/config-actions"
 import { AccountTable } from "@/components/accounts/account-table"
 import { AddAccountDialog } from "@/components/accounts/add-account-dialog"
 import { redirect } from "next/navigation"
 import { getCurrentUserAction } from "@/actions/settings-actions"
 
 export default async function AccountsPage() {
-    const accounts = await getAccountsAction()
-    const user = await getCurrentUserAction()
+    const [accounts, user, productTypes] = await Promise.all([
+        getAccountsAction(),
+        getCurrentUserAction(),
+        getProductTypesAction()
+    ])
 
     if (!accounts || !user) {
         redirect("/login")
@@ -28,7 +32,7 @@ export default async function AccountsPage() {
                 </div>
                 <AddAccountDialog />
             </div>
-            <AccountTable accounts={accounts as any} isAdmin={isAdmin} />
+            <AccountTable accounts={accounts as any} isAdmin={isAdmin} productTypes={productTypes} />
         </div>
     )
 }
