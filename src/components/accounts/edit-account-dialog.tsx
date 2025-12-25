@@ -46,6 +46,7 @@ interface Account {
     productType: string | null
     currency: string | null
     expectedYield: number | null
+    maturityDate: string | null
     notes: string | null
 }
 
@@ -73,6 +74,8 @@ export function EditAccountDialog({
         try {
             const expectedYieldRaw = formData.get("expectedYield") as string
             const expectedYieldValue = expectedYieldRaw ? parseFloat(expectedYieldRaw) : null
+            const maturityDateRaw = formData.get("maturityDate") as string
+            const maturityDateValue = maturityDateRaw && maturityDateRaw.trim() !== "" ? maturityDateRaw : null
 
             const data = {
                 bankName: formData.get("bankName") as string,
@@ -80,6 +83,7 @@ export function EditAccountDialog({
                 productType: formData.get("productType") as string,
                 currency: formData.get("currency") as string,
                 expectedYield: expectedYieldValue,
+                maturityDate: maturityDateValue,
                 notes: (formData.get("notes") as string) || null,
             }
 
@@ -188,6 +192,18 @@ export function EditAccountDialog({
                             step="0.01"
                             defaultValue={displayYield}
                             placeholder="如 2.50"
+                            className="col-span-3"
+                        />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="maturityDate" className="text-right">
+                            到期日期
+                        </Label>
+                        <Input
+                            id="maturityDate"
+                            name="maturityDate"
+                            type="date"
+                            defaultValue={account.maturityDate || ""}
                             className="col-span-3"
                         />
                     </div>

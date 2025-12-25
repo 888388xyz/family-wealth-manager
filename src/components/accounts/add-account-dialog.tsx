@@ -101,6 +101,10 @@ export function AddAccountDialog() {
                             <Input id="expectedYield" name="expectedYield" type="number" step="0.01" placeholder="如 2.50" className="col-span-3" />
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="maturityDate" className="text-right">到期日期</Label>
+                            <Input id="maturityDate" name="maturityDate" type="date" className="col-span-3" />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="notes" className="text-right">备注</Label>
                             <Textarea id="notes" name="notes" placeholder="可选" className="col-span-3" />
                         </div>

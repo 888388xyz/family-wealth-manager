@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Trash2, Check, X, Pencil, ArrowUpDown, ArrowUp, ArrowDown, Search, Settings2 } from "lucide-react"
 import { deleteAccountAction, updateBalanceAction } from "@/actions/account-actions"
 import { useState, useEffect, useMemo } from "react"
+import { useSearchParams, useRouter } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
 import { EditAccountDialog } from "./edit-account-dialog"
 
@@ -19,6 +20,7 @@ interface Account {
     currency: string | null
     balance: number
     expectedYield: number | null
+    maturityDate: string | null
     notes: string | null
     updatedAt: Date | null
     user?: { name: string | null; email: string }
@@ -27,6 +29,7 @@ interface Account {
 interface ProductType { id: string; value: string; label: string }
 interface Bank { id: string; name: string }
 interface Currency { id: string; code: string; label: string }
+interface ExchangeRate { code: string; rate: string }
 
 type SortField = "所有者" | "bankName" | "accountName" | "productType" | "币种" | "余额" | "expectedYield"
 type SortDirection = "asc" | "desc" | null
@@ -35,8 +38,9 @@ function getCurrencySymbol(currency: string | null) {
     switch (currency) {
         case "USD": return "$"
         case "HKD": return "HK$"
-        case "EUR": return "E"
-        default: return "Y"
+        case "EUR": return "€"
+        case "CNY":
+        default: return "¥"
     }
 }
 
@@ -55,6 +59,7 @@ interface AccountTableProps {
     productTypes?: ProductType[]
     banks?: Bank[]
     currencies?: Currency[]
+    exchangeRates?: ExchangeRate[]
 }
 
 export function AccountTable({ 
@@ -62,8 +67,12 @@ export function AccountTable({
     isAdmin,
     productTypes = [],
     banks = [],
-    currencies = []
+    currencies = [],
+    exchangeRates = []
 }: AccountTableProps) {
+    const searchParams = useSearchParams()
+    const router = useRouter()
+    
     const [editingId, setEditingId] = useState<string | null>(null)
     const [editValue, setEditValue] = useState("")
     const [mounted, setMounted] = useState(false)
@@ -76,6 +85,17 @@ export function AccountTable({
     const [sortDirection, setSortDirection] = useState<SortDirection>(null)
     const [editDialogOpen, setEditDialogOpen] = useState(false)
     const [editingAccount, setEditingAccount] = useState<Account | null>(null)
+
+    // Initialize filters from URL search params
+    useEffect(() => {
+        const bankParam = searchParams.get("bank")
+        const typeParam = searchParams.get("type")
+        const currencyParam = searchParams.get("currency")
+        
+        if (bankParam) setFilterBank(bankParam)
+        if (typeParam) setFilterType(typeParam)
+        if (currencyParam) setFilterCurrency(currencyParam)
+    }, [searchParams])
 
     useEffect(() => { setMounted(true) }, [])
 
@@ -133,7 +153,29 @@ export function AccountTable({
         return result
     }, [accounts, searchText, filterBank, filterType, filterCurrency, filterOwner, sortField, sortDirection, isAdmin])
 
-    const filteredTotal = useMemo(() => filteredAndSortedAccounts.reduce((sum, a) => sum + a.balance, 0), [filteredAndSortedAccounts])
+    // Build exchange rates map for currency conversion
+    const ratesMap = useMemo(() => {
+        const map = new Map<string, number>()
+        map.set("CNY", 1.0)
+        exchangeRates.forEach(r => map.set(r.code, parseFloat(r.rate)))
+        return map
+    }, [exchangeRates])
+
+    const filteredTotal = useMemo(() => {
+        return filteredAndSortedAccounts.reduce((sum, a) => {
+            const currency = a.currency || "CNY"
+            const rate = ratesMap.get(currency) || 1.0
+            // Convert to CNY: for foreign currencies, multiply by rate (rate is X CNY per 1 unit)
+            const balanceInCNY = currency === "CNY" ? a.balance : a.balance * rate
+            return sum + balanceInCNY
+        }, 0)
+    }, [filteredAndSortedAccounts, ratesMap])
+
+    // Check if filtered results contain any foreign currency accounts
+    const hasMultipleCurrencies = useMemo(() => {
+        const currencies = new Set(filteredAndSortedAccounts.map(a => a.currency || "CNY"))
+        return currencies.size > 1 || (currencies.size === 1 && !currencies.has("CNY"))
+    }, [filteredAndSortedAccounts])
 
     const handleSort = (field: SortField) => {
         if (sortField === field) {
@@ -159,7 +201,17 @@ export function AccountTable({
         setEditingAccount(account)
         setEditDialogOpen(true)
     }
-    const clearFilters = () => { setSearchText(""); setFilterBank("全部"); setFilterType("全部"); setFilterCurrency("全部"); setFilterOwner("全部"); setSortField(null); setSortDirection(null) }
+    const clearFilters = () => { 
+        setSearchText(""); 
+        setFilterBank("全部"); 
+        setFilterType("全部"); 
+        setFilterCurrency("全部"); 
+        setFilterOwner("全部"); 
+        setSortField(null); 
+        setSortDirection(null);
+        // Clear URL params
+        router.push("/accounts")
+    }
     const hasFilters = searchText || filterBank !== "全部" || filterType !== "全部" || filterCurrency !== "全部" || filterOwner !== "全部"
 
     if (!mounted) return <div className="rounded-md border p-8 text-center text-muted-foreground">加载中...</div>
@@ -203,19 +255,19 @@ export function AccountTable({
                 )}
                 {hasFilters && <Button variant="ghost" size="sm" onClick={clearFilters}>Clear</Button>}
             </div>
-            {hasFilters && <div className="text-sm text-muted-foreground">筛选结果： {filteredAndSortedAccounts.length} 个账户，合计： {formatBalance(filteredTotal)}</div>}
+            {hasFilters && <div className="text-sm text-muted-foreground">筛选结果： {filteredAndSortedAccounts.length} 个账户，合计： ¥{formatBalance(filteredTotal)}{hasMultipleCurrencies && " (折算CNY)"}</div>}
             <div className="rounded-md border">
                 <Table>
                     <TableHeader className="bg-muted/50">
                         <TableRow>
-                            {isAdmin && <TableHead className="cursor-pointer hover:bg-muted/50 font-semibold" onClick={() => handleSort("所有者")}><div className="flex items-center">Owner<SortIcon field="所有者" /></div></TableHead>}
-                            <TableHead className="cursor-pointer hover:bg-muted/50 font-semibold" onClick={() => handleSort("bankName")}><div className="flex items-center">Bank<SortIcon field="bankName" /></div></TableHead>
-                            <TableHead className="cursor-pointer hover:bg-muted/50 font-semibold" onClick={() => handleSort("accountName")}><div className="flex items-center">Name<SortIcon field="accountName" /></div></TableHead>
-                            <TableHead className="cursor-pointer hover:bg-muted/50 font-semibold" onClick={() => handleSort("productType")}><div className="flex items-center">Type<SortIcon field="productType" /></div></TableHead>
-                            <TableHead className="cursor-pointer hover:bg-muted/50 font-semibold" onClick={() => handleSort("币种")}><div className="flex items-center">Currency<SortIcon field="币种" /></div></TableHead>
-                            <TableHead className="cursor-pointer hover:bg-muted/50 text-right font-semibold" onClick={() => handleSort("余额")}><div className="flex items-center justify-end">Balance<SortIcon field="余额" /></div></TableHead>
-                            <TableHead className="cursor-pointer hover:bg-muted/50 text-right font-semibold" onClick={() => handleSort("expectedYield")}><div className="flex items-center justify-end">Yield<SortIcon field="expectedYield" /></div></TableHead>
-                            <TableHead className="text-right font-semibold">Actions</TableHead>
+                            {isAdmin && <TableHead className="cursor-pointer hover:bg-muted/50 font-semibold" onClick={() => handleSort("所有者")}><div className="flex items-center">所有者<SortIcon field="所有者" /></div></TableHead>}
+                            <TableHead className="cursor-pointer hover:bg-muted/50 font-semibold" onClick={() => handleSort("bankName")}><div className="flex items-center">平台<SortIcon field="bankName" /></div></TableHead>
+                            <TableHead className="cursor-pointer hover:bg-muted/50 font-semibold" onClick={() => handleSort("accountName")}><div className="flex items-center">产品名称<SortIcon field="accountName" /></div></TableHead>
+                            <TableHead className="cursor-pointer hover:bg-muted/50 font-semibold" onClick={() => handleSort("productType")}><div className="flex items-center">产品类型<SortIcon field="productType" /></div></TableHead>
+                            <TableHead className="cursor-pointer hover:bg-muted/50 font-semibold" onClick={() => handleSort("币种")}><div className="flex items-center">币种<SortIcon field="币种" /></div></TableHead>
+                            <TableHead className="cursor-pointer hover:bg-muted/50 text-right font-semibold" onClick={() => handleSort("余额")}><div className="flex items-center justify-end">余额<SortIcon field="余额" /></div></TableHead>
+                            <TableHead className="cursor-pointer hover:bg-muted/50 text-right font-semibold" onClick={() => handleSort("expectedYield")}><div className="flex items-center justify-end">预期收益<SortIcon field="expectedYield" /></div></TableHead>
+                            <TableHead className="text-right font-semibold">操作</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>

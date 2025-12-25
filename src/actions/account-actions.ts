@@ -6,6 +6,7 @@ import { auth } from "@/auth"
 import { eq, desc } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
+import { logAudit } from "@/lib/audit-logger"
 
 const accountSchema = z.object({
     bankName: z.string().min(1, "请选择银行/平台"),
@@ -14,6 +15,7 @@ const accountSchema = z.object({
     currency: z.string().default("CNY"),
     balance: z.coerce.number().min(0, "余额不能为负"),
     expectedYield: z.coerce.number().optional().nullable(),
+    maturityDate: z.string().optional().nullable(),
     notes: z.string().optional(),
 })
 
@@ -23,6 +25,7 @@ const updateAccountSchema = z.object({
     productType: z.string().min(1, "请选择产品类型"),
     currency: z.string().default("CNY"),
     expectedYield: z.coerce.number().optional().nullable(),
+    maturityDate: z.string().optional().nullable(),
     notes: z.string().optional().nullable(),
 })
 
@@ -64,6 +67,8 @@ export async function addAccountAction(formData: FormData) {
 
     const expectedYieldRaw = formData.get("expectedYield")
     const expectedYieldValue = expectedYieldRaw ? parseFloat(expectedYieldRaw as string) : null
+    const maturityDateRaw = formData.get("maturityDate") as string
+    const maturityDateValue = maturityDateRaw && maturityDateRaw.trim() !== "" ? maturityDateRaw : null
 
     const parsed = accountSchema.safeParse({
         bankName: formData.get("bankName"),
@@ -72,6 +77,7 @@ export async function addAccountAction(formData: FormData) {
         currency: formData.get("currency") || "CNY",
         balance: formData.get("balance"),
         expectedYield: expectedYieldValue,
+        maturityDate: maturityDateValue,
         notes: formData.get("notes"),
     })
 
@@ -95,6 +101,7 @@ export async function addAccountAction(formData: FormData) {
             currency: data.currency,
             balance: balanceInCents,
             expectedYield: yieldValue,
+            maturityDate: data.maturityDate || null,
             notes: data.notes || null,
         }).returning()
 
@@ -102,6 +109,22 @@ export async function addAccountAction(formData: FormData) {
         await db.insert(balanceHistory).values({
             accountId: newAccount.id,
             balance: balanceInCents,
+        })
+
+        // 记录审计日志
+        await logAudit({
+            userId: session.user.id!,
+            action: 'ACCOUNT_CREATE',
+            targetType: 'account',
+            targetId: newAccount.id,
+            details: {
+                bankName: data.bankName,
+                accountName: data.accountName,
+                productType: data.productType,
+                currency: data.currency,
+                balance: data.balance,
+                maturityDate: data.maturityDate,
+            },
         })
 
         revalidatePath("/accounts")
@@ -122,6 +145,7 @@ export async function updateAccountAction(
         productType: string
         currency: string
         expectedYield: number | null
+        maturityDate: string | null
         notes: string | null
     }
 ): Promise<{ success?: boolean; error?: string | Record<string, string[]> }> {
@@ -161,9 +185,26 @@ export async function updateAccountAction(
                 productType: validData.productType,
                 currency: validData.currency,
                 expectedYield: yieldValue,
+                maturityDate: validData.maturityDate || null,
                 notes: validData.notes || null,
             })
             .where(eq(bankAccounts.id, accountId))
+
+        // 记录审计日志
+        await logAudit({
+            userId: session.user.id!,
+            action: 'ACCOUNT_UPDATE',
+            targetType: 'account',
+            targetId: accountId,
+            details: {
+                bankName: validData.bankName,
+                accountName: validData.accountName,
+                productType: validData.productType,
+                currency: validData.currency,
+                expectedYield: validData.expectedYield,
+                maturityDate: validData.maturityDate,
+            },
+        })
 
         revalidatePath("/accounts")
         revalidatePath("/dashboard")
@@ -177,9 +218,30 @@ export async function updateAccountAction(
 // 更新余额
 export async function updateBalanceAction(accountId: string, newBalance: number) {
     const session = await auth()
-    if (!session?.user) return { error: "未登录" }
+    if (!session?.user?.id) return { error: "未登录" }
 
     try {
+        // 获取账户信息以进行权限检查
+        const account = await db.query.bankAccounts.findFirst({
+            where: eq(bankAccounts.id, accountId)
+        })
+
+        if (!account) {
+            return { error: "账户不存在" }
+        }
+
+        // 获取当前用户角色
+        const currentUser = await db.query.users.findFirst({
+            where: eq(users.id, session.user.id)
+        })
+
+        const isAdmin = currentUser?.role === "ADMIN"
+
+        // 权限校验：只能更新自己的账户余额，除非是管理员
+        if (account.userId !== session.user.id && !isAdmin) {
+            return { error: "无权修改他人账户余额" }
+        }
+
         const balanceInCents = Math.round(newBalance * 100)
 
         // 更新账户余额
@@ -191,6 +253,20 @@ export async function updateBalanceAction(accountId: string, newBalance: number)
         await db.insert(balanceHistory).values({
             accountId: accountId,
             balance: balanceInCents,
+        })
+
+        // 记录审计日志
+        await logAudit({
+            userId: session.user.id!,
+            action: 'BALANCE_UPDATE',
+            targetType: 'balance',
+            targetId: accountId,
+            details: {
+                accountName: account.accountName,
+                oldBalance: account.balance / 100,
+                newBalance: newBalance,
+                changedBy: isAdmin && account.userId !== session.user.id ? 'admin' : 'owner',
+            },
         })
 
         revalidatePath("/accounts")
@@ -232,6 +308,20 @@ export async function deleteAccountAction(accountId: string) {
 
         await db.delete(bankAccounts).where(eq(bankAccounts.id, accountId))
 
+        // 记录审计日志
+        await logAudit({
+            userId: session.user.id!,
+            action: 'ACCOUNT_DELETE',
+            targetType: 'account',
+            targetId: accountId,
+            details: {
+                bankName: account.bankName,
+                accountName: account.accountName,
+                balance: account.balance / 100,
+                deletedBy: isAdmin && account.userId !== session.user.id ? 'admin' : 'owner',
+            },
+        })
+
         revalidatePath("/accounts")
         revalidatePath("/dashboard")
         return { success: true }
@@ -244,12 +334,38 @@ export async function deleteAccountAction(accountId: string) {
 // 获取账户历史（用于图表）
 export async function getAccountHistoryAction(accountId: string) {
     const session = await auth()
-    if (!session?.user) return null
+    if (!session?.user?.id) return null
 
-    const history = await db.query.balanceHistory.findMany({
-        where: eq(balanceHistory.accountId, accountId),
-        orderBy: [desc(balanceHistory.recordedAt)],
-    })
+    try {
+        // 获取账户信息以进行权限检查
+        const account = await db.query.bankAccounts.findFirst({
+            where: eq(bankAccounts.id, accountId)
+        })
 
-    return history
+        if (!account) {
+            return null
+        }
+
+        // 获取当前用户角色
+        const currentUser = await db.query.users.findFirst({
+            where: eq(users.id, session.user.id)
+        })
+
+        const isAdmin = currentUser?.role === "ADMIN"
+
+        // 权限校验：只能查看自己的账户历史，除非是管理员
+        if (account.userId !== session.user.id && !isAdmin) {
+            return null // 非所有者非管理员返回空结果
+        }
+
+        const history = await db.query.balanceHistory.findMany({
+            where: eq(balanceHistory.accountId, accountId),
+            orderBy: [desc(balanceHistory.recordedAt)],
+        })
+
+        return history
+    } catch (err) {
+        console.error(err)
+        return null
+    }
 }

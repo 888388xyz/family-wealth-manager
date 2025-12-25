@@ -44,7 +44,7 @@ export default async function AccountsPage() {
                 </div>
                 <AddAccountDialog />
             </div>
-            <AccountTable accounts={accounts as any} isAdmin={isAdmin} productTypes={productTypes} banks={banks} currencies={currencies} />
+            <AccountTable accounts={accounts as any} isAdmin={isAdmin} productTypes={productTypes} banks={banks} currencies={currencies} exchangeRates={exchangeRates} />
         </div>
     )
 }

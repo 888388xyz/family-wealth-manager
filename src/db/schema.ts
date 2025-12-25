@@ -1,4 +1,4 @@
-import { pgTable, text, integer, timestamp, bigint } from "drizzle-orm/pg-core";
+import { pgTable, text, integer, timestamp, bigint, date, boolean } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
 // --- Auth (NextAuth.js Standard Schema) ---
@@ -59,6 +59,7 @@ export const bankAccounts = pgTable("bank_account", {
     balance: bigint("balance", { mode: "number" }).notNull().default(0),
     currency: text("currency").default("CNY"),
     expectedYield: integer("expectedYield"),
+    maturityDate: date("maturity_date", { mode: "string" }), // 到期日期
     notes: text("notes"),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
     updatedAt: timestamp("updated_at", { mode: "date" }).$onUpdate(() => new Date()),
@@ -109,7 +110,64 @@ export const systemCurrencies = pgTable("system_currencies", {
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
 });
 
+// --- 审计日志 ---
+
+export const auditLogs = pgTable("audit_logs", {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    userId: text("userId").references(() => users.id, { onDelete: "set null" }),
+    action: text("action").notNull(),
+    targetType: text("targetType").notNull(),
+    targetId: text("targetId"),
+    details: text("details"), // JSON string
+    ipAddress: text("ipAddress"),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
+});
+
+// --- 通知表 ---
+
+export const notifications = pgTable("notifications", {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    userId: text("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    type: text("type").notNull(), // 'BALANCE_CHANGE' | 'MATURITY_REMINDER' | 'SYSTEM'
+    title: text("title").notNull(),
+    content: text("content").notNull(),
+    isRead: boolean("is_read").default(false),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
+});
+
+// --- 每日资产快照 ---
+
+export const dailySnapshots = pgTable("daily_snapshots", {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    userId: text("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    totalBalance: bigint("total_balance", { mode: "number" }).notNull(),
+    currency: text("currency").default("CNY"),
+    snapshotDate: date("snapshot_date", { mode: "string" }).notNull(),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
+});
+
 // --- Relations ---
+
+export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
+    user: one(users, {
+        fields: [auditLogs.userId],
+        references: [users.id],
+    }),
+}));
+
+export const notificationsRelations = relations(notifications, ({ one }) => ({
+    user: one(users, {
+        fields: [notifications.userId],
+        references: [users.id],
+    }),
+}));
+
+export const dailySnapshotsRelations = relations(dailySnapshots, ({ one }) => ({
+    user: one(users, {
+        fields: [dailySnapshots.userId],
+        references: [users.id],
+    }),
+}));
 
 export const bankAccountsRelations = relations(bankAccounts, ({ one, many }) => ({
     user: one(users, {

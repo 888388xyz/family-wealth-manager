@@ -12,20 +12,23 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { LayoutDashboard, Wallet, Settings, LogOut, ShieldCheck, Cog } from "lucide-react"
+import { LayoutDashboard, Wallet, Settings, ShieldCheck, Cog, FileText } from "lucide-react"
 import Link from "next/link"
-import { signOut } from "next-auth/react"
+import { UserInfo } from "@/components/ui/user-info"
 
 const items = [
-    { title: "仪表盘", url: "/dashboard", icon: LayoutDashboard },
+    { title: "仪表面板", url: "/dashboard", icon: LayoutDashboard },
     { title: "账户管理", url: "/accounts", icon: Wallet },
 ]
 
 interface AppSidebarProps {
     userRole?: string | null
+    userName?: string | null
+    userEmail?: string
+    version?: string
 }
 
-export function AppSidebar({ userRole }: AppSidebarProps) {
+export function AppSidebar({ userRole, userName, userEmail, version = "0.1.0" }: AppSidebarProps) {
     const isAdmin = userRole === "ADMIN"
 
     return (
@@ -63,6 +66,11 @@ export function AppSidebar({ userRole }: AppSidebarProps) {
                                 </SidebarMenuItem>
                                 <SidebarMenuItem>
                                     <SidebarMenuButton asChild>
+                                        <Link href="/audit-logs"><FileText /><span>审计日志</span></Link>
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+                                <SidebarMenuItem>
+                                    <SidebarMenuButton asChild>
                                         <Link href="/config"><Cog /><span>系统配置</span></Link>
                                     </SidebarMenuButton>
                                 </SidebarMenuItem>
@@ -78,12 +86,13 @@ export function AppSidebar({ userRole }: AppSidebarProps) {
                             <Link href="/settings"><Settings /><span>设置</span></Link>
                         </SidebarMenuButton>
                     </SidebarMenuItem>
-                    <SidebarMenuItem>
-                        <SidebarMenuButton className="text-destructive hover:text-destructive" onClick={() => signOut({ callbackUrl: "/login" })}>
-                            <LogOut /><span>退出登录</span>
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
                 </SidebarMenu>
+                {userEmail && (
+                    <UserInfo
+                        user={{ name: userName ?? null, email: userEmail }}
+                        version={version}
+                    />
+                )}
             </SidebarFooter>
         </Sidebar>
     )

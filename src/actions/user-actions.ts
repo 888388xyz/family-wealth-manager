@@ -6,6 +6,7 @@ import { auth } from "@/auth"
 import { eq, ne } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { hashPassword } from "@/lib/hash"
+import { logAudit } from "@/lib/audit-logger"
 
 // Check if current user is admin
 async function isAdmin() {
@@ -47,11 +48,24 @@ export async function createUserAction(formData: FormData) {
 
         const hashedPassword = await hashPassword(password)
 
-        await db.insert(users).values({
+        const [newUser] = await db.insert(users).values({
             email,
             name: name || email.split("@")[0],
             password: hashedPassword,
             role,
+        }).returning()
+
+        // 记录审计日志
+        await logAudit({
+            userId: session.user.id!,
+            action: 'USER_CREATE',
+            targetType: 'user',
+            targetId: newUser.id,
+            details: {
+                email,
+                name: name || email.split("@")[0],
+                role,
+            },
         })
 
         revalidatePath("/users")
@@ -97,9 +111,27 @@ export async function updateUserRoleAction(userId: string, role: "ADMIN" | "MEMB
         return { error: "不能修改自己的角色" }
     }
 
+    // 获取目标用户信息
+    const targetUser = await db.query.users.findFirst({
+        where: eq(users.id, userId)
+    })
+
     await db.update(users)
         .set({ role })
         .where(eq(users.id, userId))
+
+    // 记录审计日志
+    await logAudit({
+        userId: session.user.id,
+        action: 'USER_ROLE_UPDATE',
+        targetType: 'user',
+        targetId: userId,
+        details: {
+            email: targetUser?.email,
+            oldRole: targetUser?.role,
+            newRole: role,
+        },
+    })
 
     revalidatePath("/users")
     return { success: true }
@@ -123,8 +155,27 @@ export async function deleteUserAction(userId: string) {
         return { error: "不能删除自己" }
     }
 
+    // 获取目标用户信息
+    const targetUser = await db.query.users.findFirst({
+        where: eq(users.id, userId)
+    })
+
     try {
         await db.delete(users).where(eq(users.id, userId))
+
+        // 记录审计日志
+        await logAudit({
+            userId: session.user.id,
+            action: 'USER_DELETE',
+            targetType: 'user',
+            targetId: userId,
+            details: {
+                email: targetUser?.email,
+                name: targetUser?.name,
+                role: targetUser?.role,
+            },
+        })
+
         revalidatePath("/users")
         return { success: true }
     } catch (err: any) {
@@ -145,11 +196,28 @@ export async function resetUserPasswordAction(userId: string, newPassword: strin
         return { error: "密码长度至少为6位" }
     }
 
+    // 获取目标用户信息
+    const targetUser = await db.query.users.findFirst({
+        where: eq(users.id, userId)
+    })
+
     try {
         const hashedPassword = await hashPassword(newPassword)
         await db.update(users)
             .set({ password: hashedPassword })
             .where(eq(users.id, userId))
+
+        // 记录审计日志
+        await logAudit({
+            userId: session.user.id,
+            action: 'PASSWORD_RESET',
+            targetType: 'user',
+            targetId: userId,
+            details: {
+                email: targetUser?.email,
+                resetBy: 'admin',
+            },
+        })
 
         revalidatePath("/users")
         return { success: true }
@@ -171,10 +239,28 @@ export async function updateUserNameAction(userId: string, name: string) {
         return { error: "昵称不能为空" }
     }
 
+    // 获取目标用户信息
+    const targetUser = await db.query.users.findFirst({
+        where: eq(users.id, userId)
+    })
+
     try {
         await db.update(users)
             .set({ name: name.trim() })
             .where(eq(users.id, userId))
+
+        // 记录审计日志
+        await logAudit({
+            userId: session.user.id,
+            action: 'USER_NAME_UPDATE',
+            targetType: 'user',
+            targetId: userId,
+            details: {
+                email: targetUser?.email,
+                oldName: targetUser?.name,
+                newName: name.trim(),
+            },
+        })
 
         revalidatePath("/users")
         return { success: true }
