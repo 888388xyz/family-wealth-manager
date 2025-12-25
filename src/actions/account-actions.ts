@@ -10,8 +10,8 @@ import { z } from "zod"
 const accountSchema = z.object({
     bankName: z.string().min(1, "请选择银行/平台"),
     accountName: z.string().min(1, "请输入产品名称"),
-    productType: z.enum(["FUND", "FIXED_DEPOSIT", "DEMAND_DEPOSIT", "DEMAND_WEALTH", "PRECIOUS_METAL", "STOCK", "OTHER"]),
-    currency: z.enum(["CNY", "USD", "HKD", "EUR"]).default("CNY"),
+    productType: z.string().min(1, "请选择产品类型"),
+    currency: z.string().default("CNY"),
     balance: z.coerce.number().min(0, "余额不能为负"),
     expectedYield: z.coerce.number().optional().nullable(),
     notes: z.string().optional(),

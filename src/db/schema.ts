@@ -1,4 +1,4 @@
-import { pgTable, text, integer, timestamp, varchar, bigint } from "drizzle-orm/pg-core";
+import { pgTable, text, integer, timestamp, bigint } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
 // --- Auth (NextAuth.js Standard Schema) ---
@@ -54,12 +54,8 @@ export const bankAccounts = pgTable("bank_account", {
         .references(() => users.id, { onDelete: "cascade" }),
     bankName: text("bankName").notNull(),
     accountName: text("accountName").notNull(),
-    productType: text("productType", {
-        enum: ["FUND", "FIXED_DEPOSIT", "DEMAND_DEPOSIT", "DEMAND_WEALTH", "PRECIOUS_METAL", "STOCK", "OTHER"]
-    }).notNull().default("DEMAND_DEPOSIT"),
-    accountType: text("accountType", {
-        enum: ["CHECKING", "SAVINGS", "MONEY_MARKET", "CREDIT", "WEALTH", "OTHER"]
-    }).notNull().default("CHECKING"),
+    productType: text("productType").notNull().default("DEMAND_DEPOSIT"),
+    accountType: text("accountType").notNull().default("OTHER"),
     balance: bigint("balance", { mode: "number" }).notNull().default(0),
     currency: text("currency").default("CNY"),
     expectedYield: integer("expectedYield"),

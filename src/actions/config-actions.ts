@@ -103,47 +103,51 @@ export async function deleteCurrencyAction(id: string) {
     }
 }
 
-// --- Initialize default config ---
+// --- Initialize default config (called during page render, no revalidation) ---
 export async function initializeConfigAction() {
     if (!(await isAdmin())) return { error: "无权限" }
 
-    const existingBanks = await db.query.systemBanks.findMany()
-    if (existingBanks.length === 0) {
-        const defaultBanks = ["工商银行", "建设银行", "农业银行", "中国银行", "招商银行", "浦发银行", "汇丰中国", "汇丰香港", "汇丰美国", "京东", "博时", "支付宝", "微信", "股市", "其他"]
-        for (let i = 0; i < defaultBanks.length; i++) {
-            await db.insert(systemBanks).values({ name: defaultBanks[i], sortOrder: i }).onConflictDoNothing()
+    try {
+        const existingBanks = await db.query.systemBanks.findMany()
+        if (existingBanks.length === 0) {
+            const defaultBanks = ["工商银行", "建设银行", "农业银行", "中国银行", "招商银行", "浦发银行", "汇丰中国", "汇丰香港", "汇丰美国", "京东", "博时", "支付宝", "微信", "股市", "其他"]
+            for (let i = 0; i < defaultBanks.length; i++) {
+                await db.insert(systemBanks).values({ name: defaultBanks[i], sortOrder: i }).onConflictDoNothing()
+            }
         }
-    }
 
-    const existingTypes = await db.query.systemProductTypes.findMany()
-    if (existingTypes.length === 0) {
-        const defaultTypes = [
-            { value: "FUND", label: "基金" },
-            { value: "FIXED_DEPOSIT", label: "定期理财" },
-            { value: "DEMAND_DEPOSIT", label: "活期存款" },
-            { value: "DEMAND_WEALTH", label: "活期理财" },
-            { value: "PRECIOUS_METAL", label: "贵金属" },
-            { value: "STOCK", label: "股票" },
-            { value: "OTHER", label: "其他" },
-        ]
-        for (let i = 0; i < defaultTypes.length; i++) {
-            await db.insert(systemProductTypes).values({ ...defaultTypes[i], sortOrder: i }).onConflictDoNothing()
+        const existingTypes = await db.query.systemProductTypes.findMany()
+        if (existingTypes.length === 0) {
+            const defaultTypes = [
+                { value: "FUND", label: "基金" },
+                { value: "FIXED_DEPOSIT", label: "定期理财" },
+                { value: "DEMAND_DEPOSIT", label: "活期存款" },
+                { value: "DEMAND_WEALTH", label: "活期理财" },
+                { value: "PRECIOUS_METAL", label: "贵金属" },
+                { value: "STOCK", label: "股票" },
+                { value: "OTHER", label: "其他" },
+            ]
+            for (let i = 0; i < defaultTypes.length; i++) {
+                await db.insert(systemProductTypes).values({ ...defaultTypes[i], sortOrder: i }).onConflictDoNothing()
+            }
         }
-    }
 
-    const existingCurrencies = await db.query.systemCurrencies.findMany()
-    if (existingCurrencies.length === 0) {
-        const defaultCurrencies = [
-            { code: "CNY", label: "人民币" },
-            { code: "USD", label: "美元" },
-            { code: "HKD", label: "港币" },
-            { code: "EUR", label: "欧元" },
-        ]
-        for (let i = 0; i < defaultCurrencies.length; i++) {
-            await db.insert(systemCurrencies).values({ ...defaultCurrencies[i], sortOrder: i }).onConflictDoNothing()
+        const existingCurrencies = await db.query.systemCurrencies.findMany()
+        if (existingCurrencies.length === 0) {
+            const defaultCurrencies = [
+                { code: "CNY", label: "人民币" },
+                { code: "USD", label: "美元" },
+                { code: "HKD", label: "港币" },
+                { code: "EUR", label: "欧元" },
+            ]
+            for (let i = 0; i < defaultCurrencies.length; i++) {
+                await db.insert(systemCurrencies).values({ ...defaultCurrencies[i], sortOrder: i }).onConflictDoNothing()
+            }
         }
-    }
 
-    revalidatePath("/config")
-    return { success: true }
+        return { success: true }
+    } catch (err) {
+        console.error("[Config] Initialize failed:", err)
+        return { error: "初始化配置失败" }
+    }
 }
