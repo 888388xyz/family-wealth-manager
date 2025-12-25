@@ -1,5 +1,5 @@
 import { getAccountsAction } from "@/actions/account-actions"
-import { getProductTypesAction } from "@/actions/config-actions"
+import { getProductTypesAction, getBanksAction, getCurrenciesAction } from "@/actions/config-actions"
 import { getExchangeRatesAction } from "@/actions/currency-actions"
 import { AccountTable } from "@/components/accounts/account-table"
 import { AddAccountDialog } from "@/components/accounts/add-account-dialog"
@@ -7,11 +7,13 @@ import { redirect } from "next/navigation"
 import { getCurrentUserAction } from "@/actions/settings-actions"
 
 export default async function AccountsPage() {
-    const [accounts, user, productTypes, exchangeRates] = await Promise.all([
+    const [accounts, user, productTypes, exchangeRates, banks, currencies] = await Promise.all([
         getAccountsAction(),
         getCurrentUserAction(),
         getProductTypesAction(),
-        getExchangeRatesAction()
+        getExchangeRatesAction(),
+        getBanksAction(),
+        getCurrenciesAction()
     ])
 
     if (!accounts || !user) {
@@ -42,7 +44,7 @@ export default async function AccountsPage() {
                 </div>
                 <AddAccountDialog />
             </div>
-            <AccountTable accounts={accounts as any} isAdmin={isAdmin} productTypes={productTypes} />
+            <AccountTable accounts={accounts as any} isAdmin={isAdmin} productTypes={productTypes} banks={banks} currencies={currencies} />
         </div>
     )
 }

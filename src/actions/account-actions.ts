@@ -17,6 +17,15 @@ const accountSchema = z.object({
     notes: z.string().optional(),
 })
 
+const updateAccountSchema = z.object({
+    bankName: z.string().min(1, "请选择平台"),
+    accountName: z.string().min(1, "请输入产品名称"),
+    productType: z.string().min(1, "请选择产品类型"),
+    currency: z.string().default("CNY"),
+    expectedYield: z.coerce.number().optional().nullable(),
+    notes: z.string().optional().nullable(),
+})
+
 // 获取账户列表
 export async function getAccountsAction() {
     const session = await auth()
@@ -101,6 +110,67 @@ export async function addAccountAction(formData: FormData) {
     } catch (err) {
         console.error(err)
         return { error: "创建账户失败" }
+    }
+}
+
+// 更新账户信息（不包括余额）
+export async function updateAccountAction(
+    accountId: string,
+    data: {
+        bankName: string
+        accountName: string
+        productType: string
+        currency: string
+        expectedYield: number | null
+        notes: string | null
+    }
+): Promise<{ success?: boolean; error?: string | Record<string, string[]> }> {
+    const session = await auth()
+    if (!session?.user?.id) return { error: "未登录" }
+
+    // 验证输入数据
+    const parsed = updateAccountSchema.safeParse(data)
+    if (!parsed.success) {
+        return { error: parsed.error.flatten().fieldErrors }
+    }
+
+    try {
+        // 获取账户信息以进行权限检查
+        const account = await db.query.bankAccounts.findFirst({
+            where: eq(bankAccounts.id, accountId)
+        })
+
+        if (!account) {
+            return { error: "账户不存在" }
+        }
+
+        // 权限校验：只能编辑自己的账户（管理员也不能编辑他人账户）
+        if (account.userId !== session.user.id) {
+            return { error: "无权编辑他人账户" }
+        }
+
+        const validData = parsed.data
+        // 收益率以万分之一存储，如 2.50% -> 250
+        const yieldValue = validData.expectedYield ? Math.round(validData.expectedYield * 100) : null
+
+        // 更新账户信息
+        await db.update(bankAccounts)
+            .set({
+                bankName: validData.bankName,
+                accountName: validData.accountName,
+                productType: validData.productType,
+                currency: validData.currency,
+                expectedYield: yieldValue,
+                notes: validData.notes || null,
+            })
+            .where(eq(bankAccounts.id, accountId))
+
+        revalidatePath("/accounts")
+        revalidatePath("/dashboard")
+        return { success: true }
+    } catch (err) {
+        console.error(err)
+        return { error: "更新账户失败" }
     }
 }
 
