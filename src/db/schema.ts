@@ -1,20 +1,20 @@
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
-import { sql, relations } from "drizzle-orm";
+import { pgTable, text, integer, timestamp, varchar, bigint } from "drizzle-orm/pg-core";
+import { relations } from "drizzle-orm";
 
 // --- Auth (NextAuth.js Standard Schema) ---
 
-export const users = sqliteTable("user", {
+export const users = pgTable("user", {
     id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
     name: text("name"),
     email: text("email").notNull().unique(),
-    emailVerified: integer("emailVerified", { mode: "timestamp_ms" }),
+    emailVerified: timestamp("emailVerified", { mode: "date" }),
     image: text("image"),
     password: text("password"),
     role: text("role", { enum: ["ADMIN", "MEMBER"] }).default("MEMBER"),
-    createdAt: integer("created_at", { mode: "timestamp" }).default(sql`(unixepoch())`),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
 });
 
-export const accounts = sqliteTable("account", {
+export const accounts = pgTable("account", {
     id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
     userId: text("userId")
         .notNull()
@@ -31,62 +31,61 @@ export const accounts = sqliteTable("account", {
     session_state: text("session_state"),
 });
 
-export const sessions = sqliteTable("session", {
+export const sessions = pgTable("session", {
     sessionToken: text("sessionToken").primaryKey(),
     userId: text("userId")
         .notNull()
         .references(() => users.id, { onDelete: "cascade" }),
-    expires: integer("expires", { mode: "timestamp_ms" }).notNull(),
+    expires: timestamp("expires", { mode: "date" }).notNull(),
 });
 
-export const verificationTokens = sqliteTable("verificationToken", {
+export const verificationTokens = pgTable("verificationToken", {
     identifier: text("identifier").notNull(),
     token: text("token").notNull(),
-    expires: integer("expires", { mode: "timestamp_ms" }).notNull(),
+    expires: timestamp("expires", { mode: "date" }).notNull(),
 });
 
 // --- 银行账户 ---
 
-export const bankAccounts = sqliteTable("bank_account", {
+export const bankAccounts = pgTable("bank_account", {
     id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
     userId: text("userId")
         .notNull()
         .references(() => users.id, { onDelete: "cascade" }),
-    bankName: text("bankName").notNull(), // 银行/平台名称
-    accountName: text("accountName").notNull(), // 产品名称
+    bankName: text("bankName").notNull(),
+    accountName: text("accountName").notNull(),
     productType: text("productType", {
         enum: ["FUND", "FIXED_DEPOSIT", "DEMAND_DEPOSIT", "DEMAND_WEALTH", "PRECIOUS_METAL", "STOCK", "OTHER"]
-    }).notNull().default("DEMAND_DEPOSIT"), // 产品类型：基金/定期理财/活期存款/活期理财/贵金属/股票/其他
+    }).notNull().default("DEMAND_DEPOSIT"),
     accountType: text("accountType", {
         enum: ["CHECKING", "SAVINGS", "MONEY_MARKET", "CREDIT", "WEALTH", "OTHER"]
     }).notNull().default("CHECKING"),
-    balance: integer("balance").notNull().default(0), // 当前余额（分）
-    currency: text("currency").default("CNY"), // 货币：CNY/USD
-    expectedYield: integer("expectedYield"), // 预期年化收益率（万分之一，如 250 = 2.50%）
+    balance: bigint("balance", { mode: "number" }).notNull().default(0),
+    currency: text("currency").default("CNY"),
+    expectedYield: integer("expectedYield"),
     notes: text("notes"),
-    createdAt: integer("created_at", { mode: "timestamp" }).default(sql`(unixepoch())`),
-    updatedAt: integer("updated_at", { mode: "timestamp" }).$onUpdate(() => new Date()),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).$onUpdate(() => new Date()),
 });
 
 // --- 余额历史（用于图表） ---
 
-export const balanceHistory = sqliteTable("balance_history", {
+export const balanceHistory = pgTable("balance_history", {
     id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
     accountId: text("accountId")
         .notNull()
         .references(() => bankAccounts.id, { onDelete: "cascade" }),
-    balance: integer("balance").notNull(), // 余额快照（分）
-    recordedAt: integer("recorded_at", { mode: "timestamp" }).default(sql`(unixepoch())`),
-    createdAt: integer("created_at", { mode: "timestamp" }).default(sql`(unixepoch())`),
+    balance: bigint("balance", { mode: "number" }).notNull(),
+    recordedAt: timestamp("recorded_at", { mode: "date" }).defaultNow(),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
 });
 
 // --- 汇率缓存 ---
 
-export const exchangeRates = sqliteTable("exchange_rates", {
-    code: text("code").primaryKey(), // 货币代码，如 USD, HKD
-    rate: text("rate").notNull(), // 1 人民币 等于多少该币种 (或者是 1 该币种等于多少人民币，这里定义为 1该币种 = X CNY)
-    // 实际上方便计算，还是定义 1 XXX = X CNY
-    updatedAt: integer("updated_at", { mode: "timestamp" }).$onUpdate(() => new Date()),
+export const exchangeRates = pgTable("exchange_rates", {
+    code: text("code").primaryKey(),
+    rate: text("rate").notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).$onUpdate(() => new Date()),
 });
 
 // --- Relations ---
