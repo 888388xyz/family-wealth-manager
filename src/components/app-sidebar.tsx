@@ -12,13 +12,14 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { LayoutDashboard, Wallet, Settings, ShieldCheck, Cog, FileText } from "lucide-react"
+import { LayoutDashboard, Wallet, Settings, ShieldCheck, Cog, FileText, TrendingUp } from "lucide-react"
 import Link from "next/link"
 import { UserInfo } from "@/components/ui/user-info"
 
 const items = [
     { title: "仪表面板", url: "/dashboard", icon: LayoutDashboard },
     { title: "账户管理", url: "/accounts", icon: Wallet },
+    { title: "趋势分析", url: "/trends", icon: TrendingUp },
 ]
 
 interface AppSidebarProps {
