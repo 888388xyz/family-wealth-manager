@@ -62,7 +62,7 @@ export default async function TrendsPage() {
 
             <TrendChart
                 className="w-full"
-                initialData={snapshotsData.map((s: any) => ({
+                initialData={snapshotsData.slice(-30).map((s: any) => ({
                     date: s.snapshotDate,
                     value: s.totalBalance / 100
                 }))}

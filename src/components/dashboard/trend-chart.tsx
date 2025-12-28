@@ -28,8 +28,8 @@ export function TrendChart({ className, initialData }: TrendChartProps) {
     }, [])
 
     const fetchData = async (days: number) => {
-        // 如果是首次加载且已有 initialData，且 days 为默认的 30，直接跳过 fetchData
-        if (days === 30 && initialData && data.length > 0 && loading === false) {
+        // 只有在首次挂载且 days 为默认值 30 时，才可能跳过 fetchData
+        if (days === 30 && initialData && data.length === initialData.length && loading === false) {
             return
         }
 
