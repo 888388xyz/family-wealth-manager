@@ -101,7 +101,7 @@ export function LineChart({
 
     return (
         <div className={cn("w-full h-[300px] min-h-[300px] min-w-0", className)}>
-            <ResponsiveContainer width="99%" height="100%">
+            <ResponsiveContainer width="99%" height="100%" minWidth={0}>
                 <RechartsLineChart
                     data={data}
                     margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
