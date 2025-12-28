@@ -100,11 +100,11 @@ export function LineChart({
     const yMax = maxValue + padding
 
     return (
-        <div className={cn("h-[300px] w-full", className)}>
-            <ResponsiveContainer width="100%" height="100%">
+        <div className={cn("w-full h-[300px] min-h-[300px] min-w-0", className)}>
+            <ResponsiveContainer width="99%" height="100%">
                 <RechartsLineChart
                     data={data}
-                    margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                    margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
                 >
                     {showGrid && (
                         <CartesianGrid
