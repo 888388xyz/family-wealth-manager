@@ -20,6 +20,11 @@ export function TrendChart({ className, initialData }: TrendChartProps) {
     const [data, setData] = useState<Array<{ date: string; value: number }>>(initialData || [])
     const [loading, setLoading] = useState(initialData ? false : true)
     const [isPending, startTransition] = useTransition()
+    const [mounted, setMounted] = useState(false)
+
+    useEffect(() => {
+        setMounted(true)
+    }, [])
 
     const fetchData = async (days: number) => {
         // 如果是首次加载且已有 initialData，且 days 为默认的 30，直接跳过 fetchData
@@ -106,6 +111,10 @@ export function TrendChart({ className, initialData }: TrendChartProps) {
                     <div className="flex h-[300px] flex-col items-center justify-center gap-2 text-muted-foreground">
                         <p>暂无趋势数据</p>
                         <p className="text-xs">点击刷新按钮创建今日快照</p>
+                    </div>
+                ) : !mounted ? (
+                    <div className="flex h-[300px] items-center justify-center text-muted-foreground">
+                        建立显示区域...
                     </div>
                 ) : (
                     <LineChart data={data} className="h-[300px]" />
