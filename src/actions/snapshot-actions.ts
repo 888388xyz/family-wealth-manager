@@ -106,29 +106,43 @@ export async function getDailySnapshotsAction(days: number = 30) {
 
         // 5. 最终兜底：如果数据库里真的还没写进去，但当前确实有资产，则即时生成一组虚拟数据返回给前端展示
         if (result.length < 5) {
-            console.log(`[Trends] Final fallback: Database empty. Generating virtual data for instant display.`)
+            console.log(`[Trends] Final fallback: Database empty/low. Generating DETERMINISTIC virtual data. isAdmin: ${isAdmin}, requestedDays: ${days}`)
+
             // 获取资产作为基准
             const accounts = isAdmin
                 ? await db.query.bankAccounts.findMany()
                 : await db.query.bankAccounts.findMany({ where: eq(bankAccounts.userId, session.user.id) })
 
             if (accounts.length > 0) {
-                // 简单估算一个总值
                 const currentTotal = accounts.reduce((s: number, a: any) => s + (a.balance as number), 0)
                 const virtualSnapshots = []
+
+                // 确定模拟天数：如果是 -1 (所有)，默认为 365；否则按请求天数生成
+                const simDays = days === -1 ? 365 : Math.max(days, 30)
+
+                // 确定种子：使用用户ID或固定字符串以保证同一用户看到的数据是稳定的
+                const seedValue = session.user.id.split('-').reduce((a, b) => a + b.charCodeAt(0), 0)
+
                 let bal = currentTotal
-                for (let i = 30; i >= 0; i--) {
+                for (let i = 0; i <= simDays; i++) {
                     const d = new Date()
                     d.setDate(d.getDate() - i)
                     const dStr = d.toISOString().split('T')[0]
-                    const flux = 1 + (Math.random() * 0.006 - 0.003)
-                    if (i > 0) bal = Math.round(bal / flux)
+
+                    // 使用确定性的正弦函数代替 Math.random，使数据看起来波动但刷新后保持一致
+                    const wave = Math.sin((i + seedValue) * 0.2) * 0.005
+                    const trend = i * 0.0001 // 略微的长期上升趋势
+                    const factor = 1 - (wave + trend)
+
+                    if (i > 0) bal = Math.round(bal * factor)
+
                     virtualSnapshots.push({
                         snapshotDate: dStr,
                         totalBalance: bal
                     })
                 }
-                return virtualSnapshots
+                // 返回前按日期升序排列
+                return virtualSnapshots.reverse()
             }
         }
 
@@ -296,9 +310,31 @@ async function seedHistoricalSnapshots(targetUserId: string | null) {
             if (snapshotsToInsert.length > 0) {
                 await db.insert(dailySnapshots).values(snapshotsToInsert)
                 console.log(`[Trends] Seeded ${snapshotsToInsert.length} snapshots for ${user.email}`)
+
+                // 记录成功种子
+                await logAudit({
+                    userId: user.id,
+                    action: 'DEBUG_TRENDS_FETCH', // 复用调试动作
+                    targetType: 'system',
+                    details: {
+                        event: 'seed_success',
+                        insertedCount: snapshotsToInsert.length,
+                        email: user.email
+                    }
+                }).catch(() => { })
             }
         }
-    } catch (err) {
+    } catch (err: any) {
         console.error("[Trends] Historical seeding failed:", err)
+        // 记录失败日志
+        await logAudit({
+            userId: targetUserId,
+            action: 'DEBUG_TRENDS_FETCH',
+            targetType: 'system',
+            details: {
+                event: 'seed_failed',
+                error: err?.message || String(err)
+            }
+        }).catch(() => { })
     }
 }
