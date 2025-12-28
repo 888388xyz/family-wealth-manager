@@ -70,7 +70,7 @@ export async function getDailySnapshotsAction(days: number = 30) {
                     snapshotDate: date,
                     totalBalance: balance,
                 }))
-                .sort((a, b) => a.snapshotDate.localeCompare(b.snapshotDate))
+                .sort((a: any, b: any) => a.snapshotDate.localeCompare(b.snapshotDate))
         } else {
             // 普通用户查个人
             const snapshots = await db.query.dailySnapshots.findMany({
@@ -87,20 +87,20 @@ export async function getDailySnapshotsAction(days: number = 30) {
                     snapshotDate: s.snapshotDate,
                     totalBalance: s.totalBalance,
                 }))
-                .sort((a, b) => a.snapshotDate.localeCompare(b.snapshotDate))
+                .sort((a: any, b: any) => a.snapshotDate.localeCompare(b.snapshotDate))
         }
 
         // 5. 最终兜底：如果数据库里真的还没写进去，但当前确实有资产，则即时生成一组虚拟数据返回给前端展示
         if (result.length < 5) {
             console.log(`[Trends] Final fallback: Database empty. Generating virtual data for instant display.`)
             // 获取资产作为基准
-            const accounts = await db.query.bankAccounts.findMany(
-                isAdmin ? {} : { where: eq(bankAccounts.userId, session.user.id) }
-            )
+            const accounts = isAdmin
+                ? await db.query.bankAccounts.findMany()
+                : await db.query.bankAccounts.findMany({ where: eq(bankAccounts.userId, session.user.id) })
 
             if (accounts.length > 0) {
                 // 简单估算一个总值
-                const currentTotal = accounts.reduce((s, a: any) => s + (a.balance as number), 0)
+                const currentTotal = accounts.reduce((s: number, a: any) => s + (a.balance as number), 0)
                 const virtualSnapshots = []
                 let bal = currentTotal
                 for (let i = 30; i >= 0; i--) {
@@ -142,7 +142,7 @@ export async function createDailySnapshotAction() {
             where: eq(bankAccounts.userId, session.user.id)
         })
 
-        const totalBalanceInCNY = accounts.reduce((sum, acc: any) => {
+        const totalBalanceInCNY = accounts.reduce((sum: number, acc: any) => {
             const currency = acc.currency || "CNY"
             const rate = ratesMap.get(currency) || 1.0
             return sum + (currency === "CNY" ? (acc.balance as number) : (acc.balance as number) * rate)
@@ -195,7 +195,7 @@ export async function createAllUsersSnapshotsAction() {
 
         for (const user of allUsers) {
             const accounts = await db.query.bankAccounts.findMany({ where: eq(bankAccounts.userId, user.id) })
-            const totalBalanceInCNY = accounts.reduce((sum, acc: any) => {
+            const totalBalanceInCNY = accounts.reduce((sum: number, acc: any) => {
                 const currency = acc.currency || "CNY"
                 const rate = ratesMap.get(currency) || 1.0
                 return sum + (currency === "CNY" ? (acc.balance as number) : (acc.balance as number) * rate)
@@ -240,7 +240,7 @@ async function seedHistoricalSnapshots(targetUserId: string | null) {
 
         for (const user of targetUsers) {
             const accounts = await db.query.bankAccounts.findMany({ where: eq(bankAccounts.userId, user.id) })
-            const currentTotalCNY = accounts.reduce((sum, acc: any) => {
+            const currentTotalCNY = accounts.reduce((sum: number, acc: any) => {
                 const currency = acc.currency || "CNY"
                 const rate = ratesMap.get(currency) || 1.0
                 return sum + (currency === "CNY" ? (acc.balance as number) : (acc.balance as number) * rate)
