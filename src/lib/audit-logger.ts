@@ -20,11 +20,12 @@ export type AuditAction =
     | 'USER_NAME_UPDATE'
     | '2FA_ENABLED'
     | '2FA_DISABLED'
+    | 'DEBUG_TRENDS_FETCH'
 
 /**
  * 审计目标类型
  */
-export type AuditTargetType = 'user' | 'account' | 'balance' | 'config' | 'auth'
+export type AuditTargetType = 'user' | 'account' | 'balance' | 'config' | 'auth' | 'system'
 
 /**
  * 审计日志条目接口
@@ -78,6 +79,7 @@ export function getActionDescription(action: AuditAction): string {
         USER_NAME_UPDATE: '修改用户昵称',
         '2FA_ENABLED': '启用两步验证',
         '2FA_DISABLED': '禁用两步验证',
+        DEBUG_TRENDS_FETCH: '调试：获取趋势数据',
     }
     return descriptions[action] || action
 }
@@ -92,6 +94,7 @@ export function getTargetTypeDescription(targetType: AuditTargetType): string {
         balance: '余额',
         config: '配置',
         auth: '认证',
+        system: '系统',
     }
     return descriptions[targetType] || targetType
 }

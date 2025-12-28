@@ -4,6 +4,7 @@ import { db } from "@/db"
 import { bankAccounts, dailySnapshots, exchangeRates, users } from "@/db/schema"
 import { auth } from "@/auth"
 import { eq, and, gte, lte, desc, sql } from "drizzle-orm"
+import { logAudit } from "@/lib/audit-logger"
 
 /**
  * 获取用户的每日快照数据（用于趋势图表）
@@ -34,6 +35,19 @@ export async function getDailySnapshotsAction(days: number = 30) {
             console.log(`[Trends] Snapshot count (${snapshotCount}) is low. Auto-seeding...`)
             await seedHistoricalSnapshots(isAdmin ? null : session.user.id)
         }
+
+        // [Remote Debugging] 记录诊断日志到数据库
+        await logAudit({
+            userId: session.user.id,
+            action: 'DEBUG_TRENDS_FETCH',
+            targetType: 'system',
+            details: {
+                isAdmin,
+                snapshotCount,
+                daysRequested: days,
+                timestamp: new Date().toISOString()
+            }
+        }).catch(() => { })
 
         // 3. 计算查询日期范围
         const endDate = new Date()
