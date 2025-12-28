@@ -7,6 +7,7 @@ import { eq, desc } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { logAudit } from "@/lib/audit-logger"
+import { createDailySnapshotAction } from "./snapshot-actions"
 
 const accountSchema = z.object({
     bankName: z.string().min(1, "请选择银行/平台"),
@@ -129,6 +130,8 @@ export async function addAccountAction(formData: FormData) {
 
         revalidatePath("/accounts")
         revalidatePath("/dashboard")
+        revalidatePath("/trends")
+        createDailySnapshotAction().catch(e => console.error("Snapshot error:", e))
         return { success: true }
     } catch (err) {
         console.error(err)
@@ -208,6 +211,8 @@ export async function updateAccountAction(
 
         revalidatePath("/accounts")
         revalidatePath("/dashboard")
+        revalidatePath("/trends")
+        createDailySnapshotAction().catch(e => console.error("Snapshot error:", e))
         return { success: true }
     } catch (err) {
         console.error(err)
@@ -271,6 +276,8 @@ export async function updateBalanceAction(accountId: string, newBalance: number)
 
         revalidatePath("/accounts")
         revalidatePath("/dashboard")
+        revalidatePath("/trends")
+        createDailySnapshotAction().catch(e => console.error("Snapshot error:", e))
         return { success: true }
     } catch (err) {
         console.error(err)
@@ -324,6 +331,8 @@ export async function deleteAccountAction(accountId: string) {
 
         revalidatePath("/accounts")
         revalidatePath("/dashboard")
+        revalidatePath("/trends")
+        createDailySnapshotAction().catch(e => console.error("Snapshot error:", e))
         return { success: true }
     } catch (err) {
         console.error(err)
