@@ -12,21 +12,27 @@ type TimeRange = 30 | 90 | 365
 
 interface TrendChartProps {
     className?: string
+    initialData?: Array<{ date: string; value: number }>
 }
 
-export function TrendChart({ className }: TrendChartProps) {
+export function TrendChart({ className, initialData }: TrendChartProps) {
     const [timeRange, setTimeRange] = useState<TimeRange>(30)
-    const [data, setData] = useState<Array<{ date: string; value: number }>>([])
-    const [loading, setLoading] = useState(true)
+    const [data, setData] = useState<Array<{ date: string; value: number }>>(initialData || [])
+    const [loading, setLoading] = useState(initialData ? false : true)
     const [isPending, startTransition] = useTransition()
 
     const fetchData = async (days: number) => {
+        // 如果是首次加载且已有 initialData，且 days 为默认的 30，直接跳过 fetchData
+        if (days === 30 && initialData && data.length > 0 && loading === false) {
+            return
+        }
+
         setLoading(true)
         try {
             const snapshots = await getDailySnapshotsAction(days)
             if (snapshots) {
                 setData(
-                    snapshots.map(s => ({
+                    snapshots.map((s: any) => ({
                         date: s.snapshotDate,
                         value: s.totalBalance / 100, // 转换为元
                     }))

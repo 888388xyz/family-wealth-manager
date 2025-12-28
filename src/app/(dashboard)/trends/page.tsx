@@ -20,18 +20,18 @@ export default async function TrendsPage() {
     }
 
     // 创建汇率映射
-    const ratesMap = new Map(exchangeRates.map(r => [r.code, parseFloat(r.rate)]))
+    const ratesMap = new Map<string, number>(exchangeRates.map((r: any) => [r.code, parseFloat(r.rate)]))
     ratesMap.set("CNY", 1.0)
 
     // 计算当前总资产（折算为CNY，单位：分）
-    const totalBalanceInCNY = accounts.reduce((sum, acc) => {
+    const totalBalanceInCNY = accounts.reduce((sum: number, acc: any) => {
         const currency = acc.currency || "CNY"
         const rate = ratesMap.get(currency) || 1.0
-        return sum + (currency === "CNY" ? acc.balance : acc.balance * rate)
+        return sum + (currency === "CNY" ? (acc.balance as number) : (acc.balance as number) * rate)
     }, 0)
 
     // 准备账户数据用于收益分析
-    const accountsData = accounts.map(acc => ({
+    const accountsData = accounts.map((acc: any) => ({
         id: acc.id,
         accountName: acc.accountName,
         bankName: acc.bankName,
@@ -41,7 +41,7 @@ export default async function TrendsPage() {
     }))
 
     // 准备快照数据用于历史对比
-    const snapshotsData = (snapshots || []).map(s => ({
+    const snapshotsData = (snapshots || []).map((s: any) => ({
         snapshotDate: s.snapshotDate,
         totalBalance: s.totalBalance,
     }))
@@ -52,13 +52,19 @@ export default async function TrendsPage() {
                 <h1 className="text-2xl font-bold">趋势分析</h1>
             </div>
 
-            <TrendChart className="w-full" />
+            <TrendChart
+                className="w-full"
+                initialData={snapshotsData.map((s: any) => ({
+                    date: s.snapshotDate,
+                    value: s.totalBalance / 100
+                }))}
+            />
 
             <YieldAnalysis accounts={accountsData} ratesMap={ratesMap} />
 
-            <HistoricalComparison 
-                currentBalance={totalBalanceInCNY} 
-                snapshots={snapshotsData} 
+            <HistoricalComparison
+                currentBalance={totalBalanceInCNY}
+                snapshots={snapshotsData}
             />
         </div>
     )
