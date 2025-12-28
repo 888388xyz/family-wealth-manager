@@ -5,37 +5,39 @@ import { bankAccounts, dailySnapshots, exchangeRates, users } from "@/db/schema"
 import { auth } from "@/auth"
 import { eq, and, gte, lte, desc, sql } from "drizzle-orm"
 
-// 获取用户的每日快照数据（用于趋势图表）
-// days 参数可以设置为 -1 表示获取所有历史数据
+/**
+ * 获取用户的每日快照数据（用于趋势图表）
+ * @param days 获取多少天的数据，-1 表示获取所有历史数据
+ */
 export async function getDailySnapshotsAction(days: number = 30) {
     const session = await auth()
     if (!session?.user?.id) return null
 
     try {
-        // 检查快照数量。如果数量过少（例如少于10条），则自动进行历史数据补齐。
-        const countResult = await db.select({ count: sql<number>`count(*)` })
-            .from(dailySnapshots)
-            .where(eq(dailySnapshots.userId, session.user.id))
-
-        const snapshotCount = countResult[0]?.count || 0
-
-        if (snapshotCount < 10) {
-            console.log(`[Trends] Snapshot count (${snapshotCount}) is low. Triggering auto-seed for user ${session.user.id}`)
-            await seedPersonalHistoricalSnapshots(session.user.id)
-        }
-
-        // 获取当前用户角色
+        // 1. 获取当前用户角色
         const currentUser = await db.query.users.findFirst({
             where: eq(users.id, session.user.id)
         })
-
         const isAdmin = currentUser?.role === "ADMIN"
 
-        // 计算日期范围
+        // 2. 检查数据丰满度。如果数据极少，触发自动初始化。
+        // 管理员检查全局数据，普通用户检查个人数据。
+        const countQuery = db.select({ count: sql<number>`count(*)` }).from(dailySnapshots)
+        if (!isAdmin) {
+            countQuery.where(eq(dailySnapshots.userId, session.user.id))
+        }
+        const countRes = await countQuery
+        const snapshotCount = countRes[0]?.count || 0
+
+        // 如果快照少于 10 条，且系统中确实有账户存在，则初始化历史数据
+        if (snapshotCount < 10) {
+            console.log(`[Trends] Snapshot count (${snapshotCount}) is low. Auto-seeding...`)
+            await seedHistoricalSnapshots(isAdmin ? null : session.user.id)
+        }
+
+        // 3. 计算查询日期范围
         const endDate = new Date()
         const startDate = new Date()
-
-        // 如果 days 为 -1，获取所有历史数据（设置为5年前）
         if (days === -1) {
             startDate.setFullYear(startDate.getFullYear() - 5)
         } else {
@@ -45,9 +47,9 @@ export async function getDailySnapshotsAction(days: number = 30) {
         const startDateStr = startDate.toISOString().split('T')[0]
         const endDateStr = endDate.toISOString().split('T')[0]
 
-        // 如果是管理员，获取所有用户的快照汇总；否则只获取自己的
+        // 4. 查询数据
         if (isAdmin) {
-            // 获取所有快照并按日期汇总
+            // 管理员查全局并按日期聚合
             const snapshots = await db.query.dailySnapshots.findMany({
                 where: and(
                     gte(dailySnapshots.snapshotDate, startDateStr),
@@ -56,11 +58,10 @@ export async function getDailySnapshotsAction(days: number = 30) {
                 orderBy: [desc(dailySnapshots.snapshotDate)],
             })
 
-            // 按日期汇总所有用户的资产
             const groupedByDate = new Map<string, number>()
-            snapshots.forEach((snapshot: any) => {
-                const current = groupedByDate.get(snapshot.snapshotDate) || 0
-                groupedByDate.set(snapshot.snapshotDate, current + (snapshot.totalBalance as number))
+            snapshots.forEach((s: any) => {
+                const current = groupedByDate.get(s.snapshotDate) || 0
+                groupedByDate.set(s.snapshotDate, current + (s.totalBalance as number))
             })
 
             return Array.from(groupedByDate.entries())
@@ -68,9 +69,9 @@ export async function getDailySnapshotsAction(days: number = 30) {
                     snapshotDate: date,
                     totalBalance: balance,
                 }))
-                .sort((a: any, b: any) => a.snapshotDate.localeCompare(b.snapshotDate))
+                .sort((a, b) => a.snapshotDate.localeCompare(b.snapshotDate))
         } else {
-            // 普通用户只获取自己的快照
+            // 普通用户查个人
             const snapshots = await db.query.dailySnapshots.findMany({
                 where: and(
                     eq(dailySnapshots.userId, session.user.id),
@@ -85,54 +86,49 @@ export async function getDailySnapshotsAction(days: number = 30) {
                     snapshotDate: s.snapshotDate,
                     totalBalance: s.totalBalance,
                 }))
-                .sort((a: any, b: any) => a.snapshotDate.localeCompare(b.snapshotDate))
+                .sort((a, b) => a.snapshotDate.localeCompare(b.snapshotDate))
         }
     } catch (err) {
-        console.error("获取快照数据失败:", err)
+        console.error("[Trends] 获取快照数据失败:", err)
         return null
     }
 }
 
-// 创建当日快照（可由定时任务或手动触发）
+/**
+ * 创建当日快照（手动触发或自动触发）
+ */
 export async function createDailySnapshotAction() {
     const session = await auth()
     if (!session?.user?.id) return { error: "未登录" }
 
     try {
         const today = new Date().toISOString().split('T')[0]
-
-        // 获取汇率
         const rates = await db.query.exchangeRates.findMany()
         const ratesMap = new Map<string, number>(rates.map((r: any) => [r.code, parseFloat(r.rate)]))
         ratesMap.set("CNY", 1.0)
 
-        // 获取当前用户的所有账户
         const accounts = await db.query.bankAccounts.findMany({
             where: eq(bankAccounts.userId, session.user.id)
         })
 
-        // 计算总资产（折算为CNY）
-        const totalBalanceInCNY = accounts.reduce((sum: number, acc: any) => {
+        const totalBalanceInCNY = accounts.reduce((sum, acc: any) => {
             const currency = acc.currency || "CNY"
             const rate = ratesMap.get(currency) || 1.0
             return sum + (currency === "CNY" ? (acc.balance as number) : (acc.balance as number) * rate)
         }, 0)
 
-        // 检查今天是否已有快照
-        const existingSnapshot = await db.query.dailySnapshots.findFirst({
+        const existing = await db.query.dailySnapshots.findFirst({
             where: and(
                 eq(dailySnapshots.userId, session.user.id),
                 eq(dailySnapshots.snapshotDate, today)
             )
         })
 
-        if (existingSnapshot) {
-            // 更新现有快照
+        if (existing) {
             await db.update(dailySnapshots)
                 .set({ totalBalance: totalBalanceInCNY })
-                .where(eq(dailySnapshots.id, existingSnapshot.id))
+                .where(eq(dailySnapshots.id, existing.id))
         } else {
-            // 创建新快照
             await db.insert(dailySnapshots).values({
                 userId: session.user.id,
                 totalBalance: totalBalanceInCNY,
@@ -143,61 +139,43 @@ export async function createDailySnapshotAction() {
 
         return { success: true }
     } catch (err) {
-        console.error("创建快照失败:", err)
+        console.error("[Trends] 创建快照失败:", err)
         return { error: "创建快照失败" }
     }
 }
 
-// 为所有用户创建快照（管理员功能，用于定时任务）
+/**
+ * 为全系统所有用户创建快照
+ */
 export async function createAllUsersSnapshotsAction() {
     const session = await auth()
     if (!session?.user?.id) return { error: "未登录" }
 
     try {
-        // 验证是否为管理员
-        const currentUser = await db.query.users.findFirst({
-            where: eq(users.id, session.user.id)
-        })
-
-        if (currentUser?.role !== "ADMIN") {
-            return { error: "无权限" }
-        }
+        const currentUser = await db.query.users.findFirst({ where: eq(users.id, session.user.id) })
+        if (currentUser?.role !== "ADMIN") return { error: "无权限" }
 
         const today = new Date().toISOString().split('T')[0]
-
-        // 获取汇率
         const rates = await db.query.exchangeRates.findMany()
         const ratesMap = new Map<string, number>(rates.map((r: any) => [r.code, parseFloat(r.rate)]))
         ratesMap.set("CNY", 1.0)
 
-        // 获取所有用户
         const allUsers = await db.query.users.findMany()
 
-        // 为每个用户创建快照
         for (const user of allUsers) {
-            const accounts = await db.query.bankAccounts.findMany({
-                where: eq(bankAccounts.userId, user.id)
-            })
-
-            // 计算总资产（折算为CNY）
-            const totalBalanceInCNY = accounts.reduce((sum: number, acc: any) => {
+            const accounts = await db.query.bankAccounts.findMany({ where: eq(bankAccounts.userId, user.id) })
+            const totalBalanceInCNY = accounts.reduce((sum, acc: any) => {
                 const currency = acc.currency || "CNY"
                 const rate = ratesMap.get(currency) || 1.0
                 return sum + (currency === "CNY" ? (acc.balance as number) : (acc.balance as number) * rate)
             }, 0)
 
-            // 检查今天是否已有快照
-            const existingSnapshot = await db.query.dailySnapshots.findFirst({
-                where: and(
-                    eq(dailySnapshots.userId, user.id),
-                    eq(dailySnapshots.snapshotDate, today)
-                )
+            const existing = await db.query.dailySnapshots.findFirst({
+                where: and(eq(dailySnapshots.userId, user.id), eq(dailySnapshots.snapshotDate, today))
             })
 
-            if (existingSnapshot) {
-                await db.update(dailySnapshots)
-                    .set({ totalBalance: totalBalanceInCNY })
-                    .where(eq(dailySnapshots.id, existingSnapshot.id))
+            if (existing) {
+                await db.update(dailySnapshots).set({ totalBalance: totalBalanceInCNY }).where(eq(dailySnapshots.id, existing.id))
             } else {
                 await db.insert(dailySnapshots).values({
                     userId: user.id,
@@ -207,73 +185,75 @@ export async function createAllUsersSnapshotsAction() {
                 })
             }
         }
-
         return { success: true, count: allUsers.length }
     } catch (err) {
-        console.error("批量创建快照失败:", err)
+        console.error("[Trends] 批量创建快照失败:", err)
         return { error: "批量创建快照失败" }
     }
 }
 
-// 内部函数：为新用户初始化历史数据
-async function seedPersonalHistoricalSnapshots(userId: string) {
+/**
+ * 核心初始化函数：为用户（或全系统）生成 90 天历史波动数据
+ * @param targetUserId 如果为 null，则为全系统有账户的用户初始化
+ */
+async function seedHistoricalSnapshots(targetUserId: string | null) {
     try {
-        // 获取当前汇率和账户
         const rates = await db.query.exchangeRates.findMany()
         const ratesMap = new Map<string, number>(rates.map((r: any) => [r.code, parseFloat(r.rate)]))
         ratesMap.set("CNY", 1.0)
 
-        const accounts = await db.query.bankAccounts.findMany({
-            where: eq(bankAccounts.userId, userId)
-        })
+        // 确定需要初始化的用户列表
+        const targetUsers = targetUserId
+            ? await db.query.users.findMany({ where: eq(users.id, targetUserId) })
+            : await db.query.users.findMany()
 
-        // 获取已有快照的日期，避免重复插入
-        const existingSnapshots = await db.query.dailySnapshots.findMany({
-            where: eq(dailySnapshots.userId, userId),
-            columns: { snapshotDate: true }
-        })
-        const existingDates = new Set(existingSnapshots.map((s: any) => s.snapshotDate))
+        for (const user of targetUsers) {
+            const accounts = await db.query.bankAccounts.findMany({ where: eq(bankAccounts.userId, user.id) })
+            const currentTotalCNY = accounts.reduce((sum, acc: any) => {
+                const currency = acc.currency || "CNY"
+                const rate = ratesMap.get(currency) || 1.0
+                return sum + (currency === "CNY" ? (acc.balance as number) : (acc.balance as number) * rate)
+            }, 0)
 
-        // 计算当前平衡作为基准
-        const totalBalanceInCNY = accounts.reduce((sum: number, acc: any) => {
-            const currency = acc.currency || "CNY"
-            const rate = ratesMap.get(currency) || 1.0
-            return sum + (currency === "CNY" ? (acc.balance as number) : (acc.balance as number) * rate)
-        }, 0)
+            // 如果账户为空且余额为 0，没必要生成趋势
+            if (currentTotalCNY === 0 && accounts.length === 0) continue
 
-        if (totalBalanceInCNY === 0 && accounts.length === 0) return
+            // 检查已有的快照日期，避免冲突
+            const existing = await db.query.dailySnapshots.findMany({
+                where: eq(dailySnapshots.userId, user.id),
+                columns: { snapshotDate: true }
+            })
+            const skipDates = new Set(existing.map((s: any) => s.snapshotDate))
 
-        const now = new Date()
-        const snapshots = []
-        let currentBalance = totalBalanceInCNY
+            const now = new Date()
+            const snapshotsToInsert = []
+            let simulatedBalance = currentTotalCNY
 
-        // 生成90天历史数据（倒序模拟波动）
-        for (let i = 90; i >= 0; i--) {
-            const date = new Date(now)
-            date.setDate(date.getDate() - i)
-            const dateStr = date.toISOString().split('T')[0]
+            for (let i = 90; i >= 0; i--) {
+                const date = new Date(now)
+                date.setDate(date.getDate() - i)
+                const dateStr = date.toISOString().split('T')[0]
 
-            // 越往历史走，波动越大
-            const fluctuation = 1 + (Math.random() * 0.01 - 0.005)
-            // 简单模拟资产原来越少（倒推）
-            if (i > 0) currentBalance = Math.round(currentBalance / fluctuation)
+                if (skipDates.has(dateStr)) continue
 
-            // 只有当日期不存在时才准备插入
-            if (!existingDates.has(dateStr)) {
-                snapshots.push({
-                    userId,
-                    totalBalance: i === 0 ? totalBalanceInCNY : currentBalance,
+                // 简单的波动模拟
+                const fluctuation = 1 + (Math.random() * 0.008 - 0.004)
+                if (i > 0) simulatedBalance = Math.round(simulatedBalance / fluctuation)
+
+                snapshotsToInsert.push({
+                    userId: user.id,
+                    totalBalance: i === 0 ? currentTotalCNY : simulatedBalance,
                     currency: "CNY",
                     snapshotDate: dateStr,
                 })
             }
-        }
 
-        if (snapshots.length > 0) {
-            await db.insert(dailySnapshots).values(snapshots)
-            console.log(`[Trends] Successfully auto-seeded ${snapshots.length} new historical snapshots for user ${userId}`)
+            if (snapshotsToInsert.length > 0) {
+                await db.insert(dailySnapshots).values(snapshotsToInsert)
+                console.log(`[Trends] Seeded ${snapshotsToInsert.length} snapshots for ${user.email}`)
+            }
         }
     } catch (err) {
-        console.error("[Trends] Auto-seeding failed:", err)
+        console.error("[Trends] Historical seeding failed:", err)
     }
 }
