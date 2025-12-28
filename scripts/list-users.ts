@@ -1,0 +1,16 @@
+import { db } from "../src/db";
+import { users } from "../src/db/schema";
+
+async function main() {
+    const allUsers = await db.select().from(users);
+    console.log("Users in database:");
+    allUsers.forEach(u => {
+        console.log(`- ID: ${u.id}, Name: ${u.name}, Email: ${u.email}`);
+    });
+    process.exit(0);
+}
+
+main().catch(err => {
+    console.error(err);
+    process.exit(1);
+});
