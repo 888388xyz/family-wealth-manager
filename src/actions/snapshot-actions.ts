@@ -3,7 +3,7 @@
 import { db } from "@/db"
 import { bankAccounts, dailySnapshots, exchangeRates, users } from "@/db/schema"
 import { auth } from "@/auth"
-import { eq, and, gte, lte, desc } from "drizzle-orm"
+import { eq, and, gte, lte, desc, sql } from "drizzle-orm"
 
 // 获取用户的每日快照数据（用于趋势图表）
 // days 参数可以设置为 -1 表示获取所有历史数据
@@ -12,12 +12,15 @@ export async function getDailySnapshotsAction(days: number = 30) {
     if (!session?.user?.id) return null
 
     try {
-        // 先检查是否已有任何快照，如果没有，尝试进行初始化播种
-        const snapshotCount = await db.query.dailySnapshots.findFirst({
-            where: eq(dailySnapshots.userId, session.user.id)
-        })
+        // 检查快照数量。如果数量过少（例如少于10条），则自动进行历史数据补齐。
+        const countResult = await db.select({ count: sql<number>`count(*)` })
+            .from(dailySnapshots)
+            .where(eq(dailySnapshots.userId, session.user.id))
 
-        if (!snapshotCount) {
+        const snapshotCount = countResult[0]?.count || 0
+
+        if (snapshotCount < 10) {
+            console.log(`[Trends] Snapshot count (${snapshotCount}) is low. Triggering auto-seed for user ${session.user.id}`)
             await seedPersonalHistoricalSnapshots(session.user.id)
         }
 
@@ -224,6 +227,13 @@ async function seedPersonalHistoricalSnapshots(userId: string) {
             where: eq(bankAccounts.userId, userId)
         })
 
+        // 获取已有快照的日期，避免重复插入
+        const existingSnapshots = await db.query.dailySnapshots.findMany({
+            where: eq(dailySnapshots.userId, userId),
+            columns: { snapshotDate: true }
+        })
+        const existingDates = new Set(existingSnapshots.map((s: any) => s.snapshotDate))
+
         // 计算当前平衡作为基准
         const totalBalanceInCNY = accounts.reduce((sum: number, acc: any) => {
             const currency = acc.currency || "CNY"
@@ -248,17 +258,22 @@ async function seedPersonalHistoricalSnapshots(userId: string) {
             // 简单模拟资产原来越少（倒推）
             if (i > 0) currentBalance = Math.round(currentBalance / fluctuation)
 
-            snapshots.push({
-                userId,
-                totalBalance: i === 0 ? totalBalanceInCNY : currentBalance,
-                currency: "CNY",
-                snapshotDate: dateStr,
-            })
+            // 只有当日期不存在时才准备插入
+            if (!existingDates.has(dateStr)) {
+                snapshots.push({
+                    userId,
+                    totalBalance: i === 0 ? totalBalanceInCNY : currentBalance,
+                    currency: "CNY",
+                    snapshotDate: dateStr,
+                })
+            }
         }
 
-        await db.insert(dailySnapshots).values(snapshots)
-        console.log(`Auto-seeded 90 days of snapshots for user ${userId}`)
+        if (snapshots.length > 0) {
+            await db.insert(dailySnapshots).values(snapshots)
+            console.log(`[Trends] Successfully auto-seeded ${snapshots.length} new historical snapshots for user ${userId}`)
+        }
     } catch (err) {
-        console.error("Auto-seeding failed:", err)
+        console.error("[Trends] Auto-seeding failed:", err)
     }
 }
