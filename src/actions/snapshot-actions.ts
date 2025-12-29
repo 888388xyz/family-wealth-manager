@@ -112,13 +112,23 @@ export async function getDailySnapshotsAction(days: number = 30) {
                 requestedDays: days 
             })
 
+            // 获取汇率
+            const rates = await db.query.exchangeRates.findMany()
+            const ratesMap = new Map<string, number>(rates.map((r: any) => [r.code, parseFloat(r.rate)]))
+            ratesMap.set("CNY", 1.0)
+
             // 获取资产作为基准
             const accounts = isAdmin
                 ? await db.query.bankAccounts.findMany()
                 : await db.query.bankAccounts.findMany({ where: eq(bankAccounts.userId, session.user.id) })
 
             if (accounts.length > 0) {
-                const currentTotal = accounts.reduce((s: number, a: any) => s + (a.balance as number), 0)
+                // 计算总资产时考虑汇率转换
+                const currentTotal = accounts.reduce((sum: number, acc: any) => {
+                    const currency = acc.currency || "CNY"
+                    const rate = ratesMap.get(currency) || 1.0
+                    return sum + (currency === "CNY" ? (acc.balance as number) : (acc.balance as number) * rate)
+                }, 0)
                 const virtualSnapshots = []
 
                 // 确定模拟天数：如果是 -1 (所有)，默认为 365；否则按请求天数生成
