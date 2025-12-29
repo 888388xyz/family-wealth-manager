@@ -3,6 +3,7 @@
 import { useState, useEffect, useTransition } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
 import { LineChart } from "@/components/charts/line-chart"
 import { getDailySnapshotsAction, createDailySnapshotAction } from "@/actions/snapshot-actions"
 import { TrendingUp, RefreshCw } from "lucide-react"
@@ -13,6 +14,28 @@ type TimeRange = 30 | 90 | 365
 interface TrendChartProps {
     className?: string
     initialData?: Array<{ date: string; value: number }>
+}
+
+// 图表骨架屏
+function ChartSkeleton() {
+    return (
+        <div className="h-[300px] flex flex-col gap-4 p-4">
+            <div className="flex justify-between items-end h-full">
+                {Array.from({ length: 12 }).map((_, i) => (
+                    <Skeleton 
+                        key={i} 
+                        className="w-6" 
+                        style={{ height: `${30 + Math.random() * 60}%` }} 
+                    />
+                ))}
+            </div>
+            <div className="flex justify-between">
+                {Array.from({ length: 6 }).map((_, i) => (
+                    <Skeleton key={i} className="h-3 w-12" />
+                ))}
+            </div>
+        </div>
+    )
 }
 
 export function TrendChart({ className, initialData }: TrendChartProps) {
@@ -105,18 +128,14 @@ export function TrendChart({ className, initialData }: TrendChartProps) {
             </CardHeader>
             <CardContent>
                 {loading ? (
-                    <div className="flex h-[300px] items-center justify-center text-muted-foreground">
-                        加载中...
-                    </div>
+                    <ChartSkeleton />
                 ) : data.length === 0 ? (
                     <div className="flex h-[300px] flex-col items-center justify-center gap-2 text-muted-foreground">
                         <p>暂无趋势数据</p>
                         <p className="text-xs">点击刷新按钮创建今日快照</p>
                     </div>
                 ) : !mounted ? (
-                    <div className="flex h-[300px] items-center justify-center text-muted-foreground">
-                        建立显示区域...
-                    </div>
+                    <ChartSkeleton />
                 ) : (
                     <LineChart data={data} className="h-[300px]" />
                 )}

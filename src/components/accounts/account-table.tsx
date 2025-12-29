@@ -9,6 +9,7 @@ import { deleteAccountAction, updateBalanceAction } from "@/actions/account-acti
 import { useState, useEffect, useMemo } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
 import { EditAccountDialog } from "./edit-account-dialog"
 import { AddAccountDialog } from "./add-account-dialog"
 import { createCloneData, type CloneData } from "@/lib/account-utils"
@@ -53,6 +54,53 @@ function formatBalance(cents: number) {
 function formatYield(yieldValue: number | null) {
     if (yieldValue === null) return "-"
     return (yieldValue / 100).toFixed(2) + "%"
+}
+
+// 骨架屏行组件
+function SkeletonRow({ columns }: { columns: number }) {
+    return (
+        <TableRow>
+            {Array.from({ length: columns }).map((_, i) => (
+                <TableCell key={i}>
+                    <Skeleton className="h-4 w-full" />
+                </TableCell>
+            ))}
+        </TableRow>
+    )
+}
+
+// 表格骨架屏
+function TableSkeleton({ rows = 5, columns = 7 }: { rows?: number; columns?: number }) {
+    return (
+        <div className="space-y-4">
+            {/* 筛选栏骨架 */}
+            <div className="flex flex-wrap gap-3 items-center">
+                <Skeleton className="h-9 w-[200px]" />
+                <Skeleton className="h-9 w-[140px]" />
+                <Skeleton className="h-9 w-[140px]" />
+                <Skeleton className="h-9 w-[120px]" />
+            </div>
+            {/* 表格骨架 */}
+            <div className="rounded-md border">
+                <Table>
+                    <TableHeader className="bg-muted/50">
+                        <TableRow>
+                            {Array.from({ length: columns }).map((_, i) => (
+                                <TableHead key={i}>
+                                    <Skeleton className="h-4 w-16" />
+                                </TableHead>
+                            ))}
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {Array.from({ length: rows }).map((_, i) => (
+                            <SkeletonRow key={i} columns={columns} />
+                        ))}
+                    </TableBody>
+                </Table>
+            </div>
+        </div>
+    )
 }
 
 interface AccountTableProps {
@@ -223,7 +271,7 @@ export function AccountTable({
     }
     const hasFilters = searchText || filterBank !== "全部" || filterType !== "全部" || filterCurrency !== "全部" || filterOwner !== "全部"
 
-    if (!mounted) return <div className="rounded-md border p-8 text-center text-muted-foreground">加载中...</div>
+    if (!mounted) return <TableSkeleton rows={5} columns={isAdmin ? 8 : 7} />
 
     return (
         <div className="space-y-4">
