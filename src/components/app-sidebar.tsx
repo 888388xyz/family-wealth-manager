@@ -14,12 +14,19 @@ import {
 } from "@/components/ui/sidebar"
 import { LayoutDashboard, Wallet, Settings, ShieldCheck, Cog, FileText, TrendingUp } from "lucide-react"
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { UserInfo } from "@/components/ui/user-info"
 
 const items = [
     { title: "仪表面板", url: "/dashboard", icon: LayoutDashboard },
     { title: "账户管理", url: "/accounts", icon: Wallet },
     { title: "趋势分析", url: "/trends", icon: TrendingUp },
+]
+
+const adminItems = [
+    { title: "用户管理", url: "/users", icon: ShieldCheck },
+    { title: "审计日志", url: "/audit-logs", icon: FileText },
+    { title: "系统配置", url: "/config", icon: Cog },
 ]
 
 interface AppSidebarProps {
@@ -29,7 +36,8 @@ interface AppSidebarProps {
     version?: string
 }
 
-export function AppSidebar({ userRole, userName, userEmail, version = "0.3.0" }: AppSidebarProps) {
+export function AppSidebar({ userRole, userName, userEmail, version = "0.5.0" }: AppSidebarProps) {
+    const pathname = usePathname()
     const isAdmin = userRole === "ADMIN"
 
     return (
@@ -47,7 +55,7 @@ export function AppSidebar({ userRole, userName, userEmail, version = "0.3.0" }:
                         <SidebarMenu>
                             {items.map((item) => (
                                 <SidebarMenuItem key={item.title}>
-                                    <SidebarMenuButton asChild>
+                                    <SidebarMenuButton asChild isActive={pathname === item.url}>
                                         <Link href={item.url}><item.icon /><span>{item.title}</span></Link>
                                     </SidebarMenuButton>
                                 </SidebarMenuItem>
@@ -60,21 +68,13 @@ export function AppSidebar({ userRole, userName, userEmail, version = "0.3.0" }:
                         <SidebarGroupLabel>管理</SidebarGroupLabel>
                         <SidebarGroupContent>
                             <SidebarMenu>
-                                <SidebarMenuItem>
-                                    <SidebarMenuButton asChild>
-                                        <Link href="/users"><ShieldCheck /><span>用户管理</span></Link>
-                                    </SidebarMenuButton>
-                                </SidebarMenuItem>
-                                <SidebarMenuItem>
-                                    <SidebarMenuButton asChild>
-                                        <Link href="/audit-logs"><FileText /><span>审计日志</span></Link>
-                                    </SidebarMenuButton>
-                                </SidebarMenuItem>
-                                <SidebarMenuItem>
-                                    <SidebarMenuButton asChild>
-                                        <Link href="/config"><Cog /><span>系统配置</span></Link>
-                                    </SidebarMenuButton>
-                                </SidebarMenuItem>
+                                {adminItems.map((item) => (
+                                    <SidebarMenuItem key={item.title}>
+                                        <SidebarMenuButton asChild isActive={pathname === item.url}>
+                                            <Link href={item.url}><item.icon /><span>{item.title}</span></Link>
+                                        </SidebarMenuButton>
+                                    </SidebarMenuItem>
+                                ))}
                             </SidebarMenu>
                         </SidebarGroupContent>
                     </SidebarGroup>
@@ -83,7 +83,7 @@ export function AppSidebar({ userRole, userName, userEmail, version = "0.3.0" }:
             <SidebarFooter>
                 <SidebarMenu>
                     <SidebarMenuItem>
-                        <SidebarMenuButton asChild>
+                        <SidebarMenuButton asChild isActive={pathname === "/settings"}>
                             <Link href="/settings"><Settings /><span>用户设置</span></Link>
                         </SidebarMenuButton>
                     </SidebarMenuItem>
