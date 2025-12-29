@@ -47,6 +47,18 @@ export const verificationTokens = pgTable("verificationToken", {
     expires: timestamp("expires", { mode: "date" }).notNull(),
 });
 
+// --- 2FA Pending Sessions ---
+
+export const pending2FASessions = pgTable("pending_2fa_sessions", {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    userId: text("userId")
+        .notNull()
+        .references(() => users.id, { onDelete: "cascade" }),
+    token: text("token").notNull().unique(),
+    expiresAt: timestamp("expires_at", { mode: "date" }).notNull(),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
+});
+
 // --- 银行账户 ---
 
 export const bankAccounts = pgTable("bank_account", {
@@ -183,5 +195,12 @@ export const balanceHistoryRelations = relations(balanceHistory, ({ one }) => ({
     account: one(bankAccounts, {
         fields: [balanceHistory.accountId],
         references: [bankAccounts.id],
+    }),
+}));
+
+export const pending2FASessionsRelations = relations(pending2FASessions, ({ one }) => ({
+    user: one(users, {
+        fields: [pending2FASessions.userId],
+        references: [users.id],
     }),
 }));

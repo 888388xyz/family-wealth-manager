@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/breadcrumb"
 import { getCurrentUserAction } from "@/actions/settings-actions"
 import { NotificationBell } from "@/components/notifications"
+import { redirect } from "next/navigation"
 import packageJson from "../../../package.json"
 
 export default async function DashboardLayout({
@@ -17,6 +18,12 @@ export default async function DashboardLayout({
     children: React.ReactNode
 }) {
     const user = await getCurrentUserAction()
+    
+    // 未登录用户重定向到登录页面
+    if (!user) {
+        redirect("/login")
+    }
+    
     const version = packageJson.version
 
     return (

@@ -1,9 +1,9 @@
 "use server"
 
 import { db } from "@/db"
-import { users } from "@/db/schema"
+import { users, pending2FASessions } from "@/db/schema"
 import { hashPassword, verifyPassword } from "@/lib/hash"
-import { eq } from "drizzle-orm"
+import { eq, lte } from "drizzle-orm"
 import { redirect } from "next/navigation"
 import { loginLimiter } from "@/lib/rate-limiter"
 import { signIn } from "@/auth"
@@ -41,7 +41,7 @@ export async function loginAction(formData: FormData): Promise<{
     success: boolean; 
     error?: string;
     requires2FA?: boolean;
-    tempToken?: string;
+    sessionToken?: string;
 }> {
     const email = formData.get("email") as string
     const password = formData.get("password") as string
@@ -99,12 +99,16 @@ export async function loginAction(formData: FormData): Promise<{
 
     // 检查是否启用了 2FA
     if (user.twoFactorEnabled && user.twoFactorSecret) {
-        // 生成临时 token 用于 2FA 验证
-        const tempToken = Buffer.from(JSON.stringify({
-            email,
-            password,
-            timestamp: Date.now()
-        })).toString('base64')
+        // 生成随机 UUID 作为 session token，不包含任何敏感信息
+        const sessionToken = crypto.randomUUID()
+        const expiresAt = new Date(Date.now() + 5 * 60 * 1000) // 5分钟过期
+
+        // 存储到数据库
+        await db.insert(pending2FASessions).values({
+            userId: user.id,
+            token: sessionToken,
+            expiresAt,
+        })
 
         await logAudit({
             userId: user.id,
@@ -117,7 +121,7 @@ export async function loginAction(formData: FormData): Promise<{
         return { 
             success: false, 
             requires2FA: true,
-            tempToken
+            sessionToken
         }
     }
 
@@ -147,10 +151,10 @@ export async function loginAction(formData: FormData): Promise<{
  * 验证 TOTP 码并完成登录
  */
 export async function verifyTOTPAction(
-    tempToken: string, 
+    sessionToken: string, 
     totpCode: string
 ): Promise<{ success: boolean; error?: string }> {
-    if (!tempToken || !totpCode) {
+    if (!sessionToken || !totpCode) {
         return { success: false, error: "请输入验证码" }
     }
 
@@ -173,21 +177,35 @@ export async function verifyTOTPAction(
     }
 
     try {
-        // 解析临时 token
-        const tokenData = JSON.parse(Buffer.from(tempToken, 'base64').toString())
-        const { email, password, timestamp } = tokenData
+        // 清理过期的 pending sessions
+        await db.delete(pending2FASessions)
+            .where(lte(pending2FASessions.expiresAt, new Date()))
 
-        // 检查 token 是否过期（5分钟有效期）
-        if (Date.now() - timestamp > 5 * 60 * 1000) {
+        // 从数据库查询 pending session
+        const pendingSession = await db.query.pending2FASessions.findFirst({
+            where: eq(pending2FASessions.token, sessionToken)
+        })
+
+        if (!pendingSession) {
+            return { success: false, error: "验证会话不存在或已过期" }
+        }
+
+        // 检查是否过期
+        if (new Date() > pendingSession.expiresAt) {
+            await db.delete(pending2FASessions)
+                .where(eq(pending2FASessions.id, pendingSession.id))
             return { success: false, error: "验证已过期，请重新登录" }
         }
 
         // 获取用户信息
         const user = await db.query.users.findFirst({
-            where: eq(users.email, email)
+            where: eq(users.id, pendingSession.userId)
         })
 
         if (!user || !user.twoFactorSecret) {
+            // 删除无效的 pending session
+            await db.delete(pending2FASessions)
+                .where(eq(pending2FASessions.id, pendingSession.id))
             return { success: false, error: "验证失败" }
         }
 
@@ -199,28 +217,24 @@ export async function verifyTOTPAction(
                 action: 'LOGIN_2FA_FAILED',
                 targetType: 'auth',
                 targetId: user.id,
-                details: { email, reason: 'TOTP验证码错误' },
+                details: { email: user.email, reason: 'TOTP验证码错误' },
             })
             return { success: false, error: "验证码错误，请重试" }
         }
 
-        // TOTP 验证通过，完成登录
+        // 删除 pending session（一次性使用）
+        await db.delete(pending2FASessions)
+            .where(eq(pending2FASessions.id, pendingSession.id))
+
+        // TOTP 验证通过，使用 skip2FAVerified 标志完成登录
         await signIn("credentials", {
-            email,
-            password,
+            email: user.email,
+            skip2FAVerified: "true",
             redirect: false,
         })
 
         // 登录成功，重置频率限制计数
         loginLimiter.reset(rateLimitKey)
-
-        await logAudit({
-            userId: user.id,
-            action: 'LOGIN_SUCCESS',
-            targetType: 'auth',
-            targetId: user.id,
-            details: { email, with2FA: true },
-        })
 
         return { success: true }
     } catch (error) {

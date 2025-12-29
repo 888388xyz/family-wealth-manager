@@ -15,7 +15,7 @@ export function LoginForm() {
     const [error, setError] = useState("")
     const [isLoading, setIsLoading] = useState(false)
     const [step, setStep] = useState<LoginStep>('credentials')
-    const [tempToken, setTempToken] = useState<string>("")
+    const [sessionToken, setSessionToken] = useState<string>("")
     const [totpCode, setTotpCode] = useState("")
 
     async function handleCredentialsSubmit(formData: FormData) {
@@ -28,9 +28,9 @@ export function LoginForm() {
             if (result.success) {
                 router.push("/dashboard")
                 router.refresh()
-            } else if (result.requires2FA && result.tempToken) {
+            } else if (result.requires2FA && result.sessionToken) {
                 // 需要两步验证
-                setTempToken(result.tempToken)
+                setSessionToken(result.sessionToken)
                 setStep('totp')
             } else {
                 setError(result.error || "登录失败")
@@ -48,7 +48,7 @@ export function LoginForm() {
         setIsLoading(true)
 
         try {
-            const result = await verifyTOTPAction(tempToken, totpCode)
+            const result = await verifyTOTPAction(sessionToken, totpCode)
 
             if (result.success) {
                 router.push("/dashboard")
@@ -65,7 +65,7 @@ export function LoginForm() {
 
     function handleBackToCredentials() {
         setStep('credentials')
-        setTempToken("")
+        setSessionToken("")
         setTotpCode("")
         setError("")
     }
