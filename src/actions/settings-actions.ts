@@ -5,6 +5,7 @@ import { users } from "@/db/schema"
 import { auth } from "@/auth"
 import { hashPassword, verifyPassword } from "@/lib/hash"
 import { generateSecret, generateQRCodeUrl, verifyTOTP } from "@/lib/totp"
+import { validatePassword } from "@/lib/password-validator"
 import { eq } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 
@@ -45,8 +46,10 @@ export async function changePasswordAction(formData: FormData) {
         return { error: "两次输入的新密码不一致" }
     }
 
-    if (newPassword.length < 6) {
-        return { error: "新密码长度至少为6位" }
+    // 使用密码验证器检查密码策略
+    const passwordValidation = validatePassword(newPassword)
+    if (!passwordValidation.isValid) {
+        return { error: passwordValidation.errors.join('；') }
     }
 
     const user = await db.query.users.findFirst({

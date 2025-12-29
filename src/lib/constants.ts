@@ -52,3 +52,61 @@ export const ACCOUNT_TYPES = [
     { value: "WEALTH", label: "理财产品" },
     { value: "OTHER", label: "其他" },
 ] as const
+
+
+// ============================================
+// 数值常量
+// ============================================
+
+// 货币转换：分为单位
+export const CENTS_PER_UNIT = 100
+
+// 收益率存储：万分之一（如 2.50% -> 250）
+export const YIELD_MULTIPLIER = 100
+
+// ============================================
+// 时间相关常量
+// ============================================
+
+// 缓存时间：6小时
+export const CACHE_DURATION_MS = 6 * 60 * 60 * 1000
+
+// 2FA 待验证会话过期时间：5分钟
+export const PENDING_2FA_EXPIRY_MS = 5 * 60 * 1000
+
+// 2FA 密钥设置过期时间：5分钟
+export const PENDING_SECRET_EXPIRY_MS = 5 * 60 * 1000
+
+// ============================================
+// 安全策略常量
+// ============================================
+
+// 密码策略
+export const PASSWORD_POLICY = {
+    minLength: 8,
+    requireUppercase: true,
+    requireLowercase: true,
+    requireDigit: true,
+} as const
+
+// 登录频率限制
+export const LOGIN_RATE_LIMIT = {
+    windowMs: 5 * 60 * 1000, // 5分钟
+    maxRequests: 10,
+} as const
+
+// API 频率限制
+export const API_RATE_LIMIT = {
+    windowMs: 60 * 1000, // 1分钟
+    maxRequests: 100,
+} as const
+
+// ============================================
+// 分页常量
+// ============================================
+
+// 默认分页大小
+export const DEFAULT_PAGE_SIZE = 20
+
+// 最大分页大小
+export const MAX_PAGE_SIZE = 100

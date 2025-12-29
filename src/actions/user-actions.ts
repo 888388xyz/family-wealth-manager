@@ -7,9 +7,8 @@ import { revalidatePath } from "next/cache"
 import { hashPassword } from "@/lib/hash"
 import { logAudit } from "@/lib/audit-logger"
 import { adminAction } from "@/lib/action-utils"
-
-// Check if current user is admin
-
+import { validatePassword } from "@/lib/password-validator"
+import { validateRole, validateUUID } from "@/lib/validators"
 
 export async function createUserAction(formData: FormData) {
     return adminAction(async (sessionUser) => {
@@ -20,6 +19,12 @@ export async function createUserAction(formData: FormData) {
 
         if (!email || !password || !role) {
             return { error: "缺少必填项" }
+        }
+
+        // 使用密码验证器检查密码策略
+        const passwordValidation = validatePassword(password)
+        if (!passwordValidation.isValid) {
+            return { error: passwordValidation.errors.join('；') }
         }
 
         try {
@@ -84,6 +89,11 @@ export async function getUsersAction() {
 
 export async function updateUserRoleAction(userId: string, role: "ADMIN" | "MEMBER") {
     return adminAction(async (sessionUser) => {
+        // 验证角色参数
+        if (!validateRole(role)) {
+            return { error: "无效的角色" }
+        }
+
         // Can't change own role
         if (userId === sessionUser.id) {
             return { error: "不能修改自己的角色" }
@@ -118,6 +128,11 @@ export async function updateUserRoleAction(userId: string, role: "ADMIN" | "MEMB
 
 export async function deleteUserAction(userId: string) {
     return adminAction(async (sessionUser) => {
+        // 验证 userId 格式
+        if (!validateUUID(userId)) {
+            return { error: "无效的用户 ID 格式" }
+        }
+
         if (userId === sessionUser.id) {
             return { error: "不能删除自己" }
         }
@@ -154,8 +169,10 @@ export async function deleteUserAction(userId: string) {
 
 export async function resetUserPasswordAction(userId: string, newPassword: string) {
     return adminAction(async (sessionUser) => {
-        if (!newPassword || newPassword.length < 6) {
-            return { error: "密码长度至少为6位" }
+        // 使用密码验证器检查密码策略
+        const passwordValidation = validatePassword(newPassword)
+        if (!passwordValidation.isValid) {
+            return { error: passwordValidation.errors.join('；') }
         }
 
         // 获取目标用户信息

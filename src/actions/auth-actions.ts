@@ -11,6 +11,8 @@ import { logAudit } from "@/lib/audit-logger"
 import { headers } from "next/headers"
 import { AuthError } from "next-auth"
 import { verifyTOTP } from "@/lib/totp"
+import { logger } from "@/lib/logger"
+import { PENDING_2FA_EXPIRY_MS } from "@/lib/constants"
 
 export async function registerAction(formData: FormData) {
     return { error: "注册功能已关闭，请联系管理员开通账号" }
@@ -101,7 +103,7 @@ export async function loginAction(formData: FormData): Promise<{
     if (user.twoFactorEnabled && user.twoFactorSecret) {
         // 生成随机 UUID 作为 session token，不包含任何敏感信息
         const sessionToken = crypto.randomUUID()
-        const expiresAt = new Date(Date.now() + 5 * 60 * 1000) // 5分钟过期
+        const expiresAt = new Date(Date.now() + PENDING_2FA_EXPIRY_MS)
 
         // 存储到数据库
         await db.insert(pending2FASessions).values({
@@ -241,7 +243,7 @@ export async function verifyTOTPAction(
         if (error instanceof AuthError) {
             return { success: false, error: "登录失败" }
         }
-        console.error('2FA verification error:', error)
+        logger.error('2FA verification error', error instanceof Error ? error : new Error(String(error)))
         return { success: false, error: "验证失败，请重试" }
     }
 }

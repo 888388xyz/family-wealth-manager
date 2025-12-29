@@ -5,6 +5,7 @@ import { bankAccounts, dailySnapshots, exchangeRates, users } from "@/db/schema"
 import { auth } from "@/auth"
 import { eq, and, gte, lte, desc, sql } from "drizzle-orm"
 import { logAudit } from "@/lib/audit-logger"
+import { logger } from "@/lib/logger"
 
 /**
  * 获取用户的每日快照数据（用于趋势图表）
@@ -32,7 +33,7 @@ export async function getDailySnapshotsAction(days: number = 30) {
 
         // 如果快照少于 10 条，且系统中确实有账户存在，则初始化历史数据
         if (snapshotCount < 10) {
-            console.log(`[Trends] Snapshot count (${snapshotCount}) is low. Auto-seeding...`)
+            logger.info('[Trends] Snapshot count is low. Auto-seeding...', { snapshotCount })
             await seedHistoricalSnapshots(isAdmin ? null : session.user.id)
         }
 
@@ -106,7 +107,10 @@ export async function getDailySnapshotsAction(days: number = 30) {
 
         // 5. 最终兜底：如果数据库里真的还没写进去，但当前确实有资产，则即时生成一组虚拟数据返回给前端展示
         if (result.length < 5) {
-            console.log(`[Trends] Final fallback: Database empty/low. Generating DETERMINISTIC virtual data. isAdmin: ${isAdmin}, requestedDays: ${days}`)
+            logger.info('[Trends] Final fallback: Database empty/low. Generating DETERMINISTIC virtual data.', { 
+                isAdmin, 
+                requestedDays: days 
+            })
 
             // 获取资产作为基准
             const accounts = isAdmin
@@ -148,7 +152,7 @@ export async function getDailySnapshotsAction(days: number = 30) {
 
         return result
     } catch (err) {
-        console.error("[Trends] 获取快照数据失败:", err)
+        logger.error("[Trends] 获取快照数据失败", err instanceof Error ? err : new Error(String(err)))
         return null
     }
 }
@@ -198,13 +202,15 @@ export async function createDailySnapshotAction() {
 
         return { success: true }
     } catch (err) {
-        console.error("[Trends] 创建快照失败:", err)
+        logger.error("[Trends] 创建快照失败", err instanceof Error ? err : new Error(String(err)))
         return { error: "创建快照失败" }
     }
 }
 
 /**
  * 为全系统所有用户创建快照
+ * 
+ * 优化：批量查询所有账户，内存中按用户分组，避免 N+1 查询
  */
 export async function createAllUsersSnapshotsAction() {
     const session = await auth()
@@ -221,8 +227,18 @@ export async function createAllUsersSnapshotsAction() {
 
         const allUsers = await db.query.users.findMany()
 
+        // 优化：一次性查询所有账户，内存分组
+        const allAccounts = await db.query.bankAccounts.findMany()
+        const accountsByUser = new Map<string, typeof allAccounts>()
+        for (const account of allAccounts) {
+            const userAccounts = accountsByUser.get(account.userId) || []
+            userAccounts.push(account)
+            accountsByUser.set(account.userId, userAccounts)
+        }
+
         for (const user of allUsers) {
-            const accounts = await db.query.bankAccounts.findMany({ where: eq(bankAccounts.userId, user.id) })
+            // 从内存中获取用户账户，而不是每次查询数据库
+            const accounts = accountsByUser.get(user.id) || []
             const totalBalanceInCNY = accounts.reduce((sum: number, acc: any) => {
                 const currency = acc.currency || "CNY"
                 const rate = ratesMap.get(currency) || 1.0
@@ -246,7 +262,7 @@ export async function createAllUsersSnapshotsAction() {
         }
         return { success: true, count: allUsers.length }
     } catch (err) {
-        console.error("[Trends] 批量创建快照失败:", err)
+        logger.error("[Trends] 批量创建快照失败", err instanceof Error ? err : new Error(String(err)))
         return { error: "批量创建快照失败" }
     }
 }
@@ -254,6 +270,8 @@ export async function createAllUsersSnapshotsAction() {
 /**
  * 核心初始化函数：为用户（或全系统）生成 90 天历史波动数据
  * @param targetUserId 如果为 null，则为全系统有账户的用户初始化
+ * 
+ * 优化：批量查询所有账户，内存中按用户分组，避免 N+1 查询
  */
 async function seedHistoricalSnapshots(targetUserId: string | null) {
     try {
@@ -266,8 +284,22 @@ async function seedHistoricalSnapshots(targetUserId: string | null) {
             ? await db.query.users.findMany({ where: eq(users.id, targetUserId) })
             : await db.query.users.findMany()
 
+        // 优化：批量查询所有账户，避免 N+1 查询
+        const allAccounts = targetUserId
+            ? await db.query.bankAccounts.findMany({ where: eq(bankAccounts.userId, targetUserId) })
+            : await db.query.bankAccounts.findMany()
+
+        // 内存中按用户分组
+        const accountsByUser = new Map<string, typeof allAccounts>()
+        for (const account of allAccounts) {
+            const userAccounts = accountsByUser.get(account.userId) || []
+            userAccounts.push(account)
+            accountsByUser.set(account.userId, userAccounts)
+        }
+
         for (const user of targetUsers) {
-            const accounts = await db.query.bankAccounts.findMany({ where: eq(bankAccounts.userId, user.id) })
+            // 从内存中获取用户账户，而不是每次查询数据库
+            const accounts = accountsByUser.get(user.id) || []
             const currentTotalCNY = accounts.reduce((sum: number, acc: any) => {
                 const currency = acc.currency || "CNY"
                 const rate = ratesMap.get(currency) || 1.0
@@ -309,7 +341,10 @@ async function seedHistoricalSnapshots(targetUserId: string | null) {
 
             if (snapshotsToInsert.length > 0) {
                 await db.insert(dailySnapshots).values(snapshotsToInsert)
-                console.log(`[Trends] Seeded ${snapshotsToInsert.length} snapshots for ${user.email}`)
+                logger.info('[Trends] Seeded snapshots for user', { 
+                    count: snapshotsToInsert.length, 
+                    userEmail: user.email 
+                })
 
                 // 记录成功种子
                 await logAudit({
@@ -325,7 +360,7 @@ async function seedHistoricalSnapshots(targetUserId: string | null) {
             }
         }
     } catch (err: any) {
-        console.error("[Trends] Historical seeding failed:", err)
+        logger.error("[Trends] Historical seeding failed", err instanceof Error ? err : new Error(String(err)))
         // 记录失败日志
         await logAudit({
             userId: targetUserId,

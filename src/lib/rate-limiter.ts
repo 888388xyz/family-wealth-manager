@@ -3,6 +3,8 @@
  * 使用内存存储（Map）实现
  */
 
+import { LOGIN_RATE_LIMIT, API_RATE_LIMIT } from "@/lib/constants"
+
 interface RateLimiterConfig {
     windowMs: number      // 时间窗口（毫秒）
     maxRequests: number   // 最大请求数
@@ -83,13 +85,7 @@ export class RateLimiter {
 }
 
 // 登录限制器：5分钟内最多10次尝试
-export const loginLimiter = new RateLimiter({
-    windowMs: 5 * 60 * 1000, // 5分钟
-    maxRequests: 10
-})
+export const loginLimiter = new RateLimiter(LOGIN_RATE_LIMIT)
 
 // API限制器：1分钟内最多100次请求
-export const apiLimiter = new RateLimiter({
-    windowMs: 60 * 1000, // 1分钟
-    maxRequests: 100
-})
+export const apiLimiter = new RateLimiter(API_RATE_LIMIT)

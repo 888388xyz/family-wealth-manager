@@ -2,7 +2,7 @@
 
 import { db } from "@/db"
 import { exchangeRates, systemCurrencies } from "@/db/schema"
-import { eq, inArray } from "drizzle-orm"
+import { inArray } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 
 const CACHE_DURATION = 6 * 60 * 60 * 1000 // 6 hours
@@ -46,6 +46,11 @@ export async function getExchangeRatesAction() {
     }
 }
 
+/**
+ * 刷新汇率数据
+ * 
+ * 优化：使用 onConflictDoUpdate 替代 select-then-update 模式
+ */
 export async function refreshExchangeRates() {
     try {
         // Get configured currencies from system_currencies table
@@ -67,39 +72,32 @@ export async function refreshExchangeRates() {
         // We want to store 1 Unit = X CNY
         // So rate_in_cny = 1 / api_rate
 
-        // Only update rates for configured currencies
+        // 优化：使用 onConflictDoUpdate 批量 upsert
         for (const code of configuredCodes) {
             if (code === "CNY") continue // Skip CNY, handle separately
             
             if (apiRates[code]) {
                 const rateInCNY = (1 / apiRates[code]).toFixed(6)
+                const now = new Date()
 
-                // Upsert
-                const existing = await db.query.exchangeRates.findFirst({
-                    where: eq(exchangeRates.code, code)
-                })
-
-                if (existing) {
-                    await db.update(exchangeRates)
-                        .set({ rate: rateInCNY, updatedAt: new Date() })
-                        .where(eq(exchangeRates.code, code))
-                } else {
-                    await db.insert(exchangeRates)
-                        .values({ code, rate: rateInCNY, updatedAt: new Date() })
-                }
+                await db.insert(exchangeRates)
+                    .values({ code, rate: rateInCNY, updatedAt: now })
+                    .onConflictDoUpdate({
+                        target: exchangeRates.code,
+                        set: { rate: rateInCNY, updatedAt: now }
+                    })
             }
         }
 
         // Always ensure CNY:CNY is 1 if CNY is configured
         if (configuredCodes.includes("CNY")) {
-            const cnyExisting = await db.query.exchangeRates.findFirst({
-                where: eq(exchangeRates.code, "CNY")
-            })
-            if (!cnyExisting) {
-                await db.insert(exchangeRates).values({ code: "CNY", rate: "1.000000", updatedAt: new Date() })
-            } else {
-                await db.update(exchangeRates).set({ rate: "1.000000", updatedAt: new Date() }).where(eq(exchangeRates.code, "CNY"))
-            }
+            const now = new Date()
+            await db.insert(exchangeRates)
+                .values({ code: "CNY", rate: "1.000000", updatedAt: now })
+                .onConflictDoUpdate({
+                    target: exchangeRates.code,
+                    set: { rate: "1.000000", updatedAt: now }
+                })
         }
 
         revalidatePath("/dashboard")

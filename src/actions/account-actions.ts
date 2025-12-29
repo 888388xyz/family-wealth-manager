@@ -8,6 +8,8 @@ import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { logAudit } from "@/lib/audit-logger"
 import { createDailySnapshotAction } from "./snapshot-actions"
+import { validateUUID } from "@/lib/validators"
+import { CENTS_PER_UNIT, YIELD_MULTIPLIER } from "@/lib/constants"
 
 const accountSchema = z.object({
     bankName: z.string().min(1, "请选择银行/平台"),
@@ -88,9 +90,9 @@ export async function addAccountAction(formData: FormData) {
 
     try {
         const data = parsed.data
-        const balanceInCents = Math.round(data.balance * 100)
+        const balanceInCents = Math.round(data.balance * CENTS_PER_UNIT)
         // 收益率以万分之一存储，如 2.50% -> 250
-        const yieldValue = data.expectedYield ? Math.round(data.expectedYield * 100) : null
+        const yieldValue = data.expectedYield ? Math.round(data.expectedYield * YIELD_MULTIPLIER) : null
 
         // 插入账户
         const [newAccount] = await db.insert(bankAccounts).values({
@@ -178,7 +180,7 @@ export async function updateAccountAction(
 
         const validData = parsed.data
         // 收益率以万分之一存储，如 2.50% -> 250
-        const yieldValue = validData.expectedYield ? Math.round(validData.expectedYield * 100) : null
+        const yieldValue = validData.expectedYield ? Math.round(validData.expectedYield * YIELD_MULTIPLIER) : null
 
         // 更新账户信息
         await db.update(bankAccounts)
@@ -225,6 +227,11 @@ export async function updateBalanceAction(accountId: string, newBalance: number)
     const session = await auth()
     if (!session?.user?.id) return { error: "未登录" }
 
+    // 验证 accountId 格式
+    if (!validateUUID(accountId)) {
+        return { error: "无效的账户 ID 格式" }
+    }
+
     try {
         // 获取账户信息以进行权限检查
         const account = await db.query.bankAccounts.findFirst({
@@ -247,7 +254,7 @@ export async function updateBalanceAction(accountId: string, newBalance: number)
             return { error: "无权修改他人账户余额" }
         }
 
-        const balanceInCents = Math.round(newBalance * 100)
+        const balanceInCents = Math.round(newBalance * CENTS_PER_UNIT)
 
         // 更新账户余额
         await db.update(bankAccounts)
@@ -268,7 +275,7 @@ export async function updateBalanceAction(accountId: string, newBalance: number)
             targetId: accountId,
             details: {
                 accountName: account.accountName,
-                oldBalance: account.balance / 100,
+                oldBalance: account.balance / CENTS_PER_UNIT,
                 newBalance: newBalance,
                 changedBy: isAdmin && account.userId !== session.user.id ? 'admin' : 'owner',
             },
@@ -289,6 +296,11 @@ export async function updateBalanceAction(accountId: string, newBalance: number)
 export async function deleteAccountAction(accountId: string) {
     const session = await auth()
     if (!session?.user?.id) return { error: "未登录" }
+
+    // 验证 accountId 格式
+    if (!validateUUID(accountId)) {
+        return { error: "无效的账户 ID 格式" }
+    }
 
     try {
 
@@ -324,7 +336,7 @@ export async function deleteAccountAction(accountId: string) {
             details: {
                 bankName: account.bankName,
                 accountName: account.accountName,
-                balance: account.balance / 100,
+                balance: account.balance / CENTS_PER_UNIT,
                 deletedBy: isAdmin && account.userId !== session.user.id ? 'admin' : 'owner',
             },
         })

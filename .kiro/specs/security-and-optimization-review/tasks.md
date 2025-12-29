@@ -1,91 +1,169 @@
-# Implementation Plan: 安全与优化改进
+# Implementation Plan: 安全增强与代码优化
 
 ## Overview
 
-本任务列表包含三个主要改进：
-1. 修复 2FA 临时 token 安全漏洞（P0 - 必须）
-2. 统一权限检查逻辑（P1 - 推荐）
-3. Dashboard Layout 添加未登录重定向（P1 - 推荐）
+本任务列表包含 P1 和 P2 优先级的改进：
+1. 环境变量启动验证
+2. 密码策略增强
+3. 输入验证增强
+4. 敏感信息日志清理
+5. 数据库查询优化
+6. 错误处理统一
+7. 常量提取
 
 ## Tasks
 
-- [x] 1. 修复 2FA 安全漏洞
-  - [x] 1.1 创建 pending_2fa_sessions 数据库表
-    - 在 `src/db/schema.ts` 添加 `pending2FASessions` 表定义
-    - 包含字段：id, userId, token, expiresAt, createdAt
-    - 添加外键关联到 users 表
+- [x] 1. 创建基础工具模块
+  - [x] 1.1 创建环境变量验证器
+    - 创建 `src/lib/env-validator.ts`
+    - 验证 DATABASE_URL 存在
+    - 验证 AUTH_SECRET 存在且长度 >= 32
+    - 导出类型安全的 env 对象
+    - _Requirements: 1.1, 1.2, 1.3, 1.4_
+
+  - [x] 1.2 更新数据库连接使用环境验证器
+    - 修改 `src/db/index.ts` 使用 env-validator
+    - 移除 `!` 断言
     - _Requirements: 1.1_
 
-  - [x] 1.2 生成数据库迁移并执行
-    - 运行 `npx drizzle-kit generate` 生成迁移文件
-    - 运行 `npx drizzle-kit push` 应用到数据库
-    - _Requirements: 1.1_
+  - [ ]* 1.3 编写环境验证器属性测试
+    - **Property 1: 环境变量验证完整性**
+    - **Validates: Requirements 1.1, 1.2, 1.3, 1.4**
 
-  - [x] 1.3 修改 loginAction 函数
-    - 移除 Base64 编码密码的 tempToken 生成逻辑
-    - 改为生成随机 UUID 作为 sessionToken
-    - 将 sessionToken 和 userId 存入 pending_2fa_sessions 表
-    - 设置 5 分钟过期时间
-    - _Requirements: 1.1_
+- [x] 2. 创建密码验证模块
+  - [x] 2.1 创建密码验证器
+    - 创建 `src/lib/password-validator.ts`
+    - 实现 8 位最小长度检查
+    - 实现大写字母检查
+    - 实现小写字母检查
+    - 实现数字检查
+    - 返回所有不满足的规则列表
+    - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
 
-  - [x] 1.4 修改 verifyTOTPAction 函数
-    - 从数据库查询 pending session 而非解码 token
-    - 验证 session 是否过期
-    - 验证 TOTP 码
-    - 成功后删除 pending session
-    - 使用 NextAuth 创建真正的登录 session
-    - _Requirements: 1.1_
+  - [x] 2.2 集成密码验证到 settings-actions
+    - 修改 `changePasswordAction` 使用密码验证器
+    - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
 
-  - [x] 1.5 添加过期 session 清理逻辑
-    - 在 verifyTOTPAction 中顺便清理过期记录
-    - 或在查询时过滤过期记录
-    - _Requirements: 1.1_
+  - [x] 2.3 集成密码验证到 user-actions
+    - 修改 `createUserAction` 使用密码验证器
+    - 修改 `resetUserPasswordAction` 使用密码验证器
+    - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
 
-  - [ ]* 1.6 编写单元测试
-    - 测试 session token 生成格式
-    - 测试过期 session 被拒绝
-    - 测试成功验证后 session 被删除
-    - _Requirements: 1.1_
+  - [ ]* 2.4 编写密码验证器属性测试
+    - **Property 2: 密码策略验证**
+    - **Validates: Requirements 2.1, 2.2, 2.3, 2.4, 2.5**
 
-- [x] 2. Checkpoint - 确保 2FA 修复完成
+- [x] 3. Checkpoint - 确保密码验证完成
   - 确保所有测试通过，如有问题请询问用户
 
-- [x] 3. 统一权限检查逻辑
-  - [x] 3.1 重构 config-actions.ts
-    - 移除本地 `isAdmin()` 函数
-    - 导入 `adminAction` from `@/lib/action-utils`
-    - 修改 `addBankAction` 使用 adminAction wrapper
-    - 修改 `deleteBankAction` 使用 adminAction wrapper
-    - 修改 `addProductTypeAction` 使用 adminAction wrapper
-    - 修改 `deleteProductTypeAction` 使用 adminAction wrapper
-    - 修改 `addCurrencyAction` 使用 adminAction wrapper
-    - 修改 `deleteCurrencyAction` 使用 adminAction wrapper
-    - 修改 `initializeConfigAction` 使用 adminAction wrapper
-    - _Requirements: 1.1 (代码质量)_
+- [x] 4. 创建输入验证模块
+  - [x] 4.1 创建通用验证器
+    - 创建 `src/lib/validators.ts`
+    - 实现 UUID 验证函数
+    - 实现角色验证函数
+    - 实现金额范围验证
+    - _Requirements: 3.1, 3.2, 3.3_
 
-  - [x] 3.2 重构 audit-actions.ts
-    - 移除本地 `isAdmin()` 函数
-    - 导入 `adminAction` from `@/lib/action-utils`
-    - 修改 `getAuditLogsAction` 使用 adminAction wrapper
-    - 修改 `getAuditActionsAction` 使用 adminAction wrapper
-    - 修改 `getAuditTargetTypesAction` 使用 adminAction wrapper
-    - _Requirements: 1.1 (代码质量)_
+  - [x] 4.2 集成角色验证到 user-actions
+    - 修改 `updateUserRoleAction` 验证 role 参数
+    - _Requirements: 3.1_
 
-- [x] 4. Dashboard Layout 添加未登录重定向
-  - [x] 4.1 修改 dashboard layout
-    - 在 `src/app/(dashboard)/layout.tsx` 添加未登录检查
-    - 如果 `getCurrentUserAction()` 返回 null，重定向到 `/login`
-    - _Requirements: 2.1_
+  - [x] 4.3 集成 UUID 验证到关键 actions
+    - 修改 `deleteAccountAction` 验证 accountId
+    - 修改 `updateBalanceAction` 验证 accountId
+    - 修改 `deleteUserAction` 验证 userId
+    - _Requirements: 3.2_
 
-- [x] 5. Final Checkpoint - 确保所有改进完成
+  - [ ]* 4.4 编写输入验证器属性测试
+    - **Property 3: 角色参数验证**
+    - **Property 4: UUID 格式验证**
+    - **Validates: Requirements 3.1, 3.2**
+
+- [x] 5. 创建结构化日志模块
+  - [x] 5.1 创建日志器
+    - 创建 `src/lib/logger.ts`
+    - 实现敏感信息过滤（password, secret, token, email）
+    - 实现结构化 JSON 输出
+    - 实现日志级别（debug, info, warn, error）
+    - 生产环境隐藏 debug 日志
+    - _Requirements: 4.1, 4.2, 4.3_
+
+  - [x] 5.2 替换关键模块的 console 调用
+    - 修改 `src/actions/auth-actions.ts` 使用 logger
+    - 修改 `src/actions/snapshot-actions.ts` 使用 logger
+    - _Requirements: 4.1, 4.2_
+
+  - [ ]* 5.3 编写日志器属性测试
+    - **Property 5: 日志敏感信息过滤**
+    - **Validates: Requirements 4.1**
+
+- [x] 6. Checkpoint - 确保安全模块完成
+  - 确保所有测试通过，如有问题请询问用户
+
+- [x] 7. 扩展常量文件
+  - [x] 7.1 添加新常量定义
+    - 修改 `src/lib/constants.ts`
+    - 添加 CENTS_PER_UNIT = 100
+    - 添加 YIELD_MULTIPLIER = 100
+    - 添加 CACHE_DURATION_MS
+    - 添加 PENDING_2FA_EXPIRY_MS
+    - 添加 PASSWORD_POLICY 对象
+    - 添加 LOGIN_RATE_LIMIT 对象
+    - _Requirements: 7.1, 7.2, 7.3_
+
+  - [x] 7.2 更新代码使用常量
+    - 修改 `src/actions/account-actions.ts` 使用 CENTS_PER_UNIT
+    - 修改 `src/lib/rate-limiter.ts` 使用 LOGIN_RATE_LIMIT
+    - 修改 `src/actions/auth-actions.ts` 使用 PENDING_2FA_EXPIRY_MS
+    - _Requirements: 7.1, 7.2, 7.3_
+
+- [x] 8. 创建统一错误处理模块
+  - [x] 8.1 创建 Result 类型
+    - 创建 `src/lib/result.ts`
+    - 定义 Success<T> 和 Failure 类型
+    - 定义 Result<T> 联合类型
+    - 实现 success() 和 failure() 辅助函数
+    - 定义 ErrorCodes 常量
+    - _Requirements: 6.1, 6.2, 6.3_
+
+  - [ ]* 8.2 编写错误处理属性测试
+    - **Property 6: 错误响应结构一致性**
+    - **Validates: Requirements 6.2**
+
+- [x] 9. 数据库查询优化
+  - [x] 9.1 优化 seedHistoricalSnapshots
+    - 修改 `src/actions/snapshot-actions.ts`
+    - 批量查询所有账户
+    - 内存中按用户分组
+    - _Requirements: 5.1_
+
+  - [x] 9.2 优化 createAllUsersSnapshotsAction
+    - 修改 `src/actions/snapshot-actions.ts`
+    - 批量查询所有账户
+    - 内存中按用户分组
+    - _Requirements: 5.2_
+
+  - [x] 9.3 优化 refreshExchangeRates
+    - 修改 `src/actions/currency-actions.ts`
+    - 使用 onConflictDoUpdate 替代 select-then-update
+    - _Requirements: 5.3_
+
+  - [x] 9.4 添加 React cache 缓存
+    - 创建 `src/lib/cached-queries.ts`
+    - 实现 getCurrentUser 缓存函数
+    - 实现 getExchangeRatesMap 缓存函数
+    - _Requirements: 5.4_
+
+- [x] 10. Final Checkpoint - 确保所有改进完成
   - 确保所有测试通过
-  - 验证 2FA 登录流程正常工作
-  - 验证管理员功能正常工作
-  - 验证未登录访问 dashboard 会重定向
+  - 验证环境变量验证正常工作
+  - 验证密码策略正常工作
+  - 验证输入验证正常工作
+  - 验证日志敏感信息过滤正常工作
 
 ## Notes
 
-- 任务 1 是安全修复，必须完成
-- 任务 3、4 是代码优化，推荐完成
-- 标记 `*` 的任务是可选的测试任务
+- 任务标记 `*` 的是可选的测试任务
 - 每个 checkpoint 用于验证阶段性成果
+- 性能优化任务（9.x）可以在功能完成后进行
+- 数据库索引建议需要手动在数据库中执行
