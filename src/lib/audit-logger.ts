@@ -21,6 +21,8 @@ export type AuditAction =
     | '2FA_ENABLED'
     | '2FA_DISABLED'
     | 'DEBUG_TRENDS_FETCH'
+    | 'ADMIN_BACKUP'
+    | 'ADMIN_RESTORE'
 
 /**
  * 审计目标类型
@@ -80,6 +82,8 @@ export function getActionDescription(action: AuditAction): string {
         '2FA_ENABLED': '启用两步验证',
         '2FA_DISABLED': '禁用两步验证',
         DEBUG_TRENDS_FETCH: '调试：获取趋势数据',
+        ADMIN_BACKUP: '系统备份',
+        ADMIN_RESTORE: '系统恢复',
     }
     return descriptions[action] || action
 }
