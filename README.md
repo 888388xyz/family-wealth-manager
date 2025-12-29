@@ -14,6 +14,10 @@
 - **权限控制**: 用户只能操作自己的账户，管理员拥有全局权限
 - **审计日志**: 记录所有敏感操作，仅管理员可查看
 - **登录保护**: 频率限制防止暴力破解（5分钟内最多10次尝试）
+- **环境变量验证**: 启动时验证关键配置，防止配置错误
+- **密码策略**: 强制8位以上，包含大小写字母和数字
+- **输入验证**: UUID、角色、金额等参数严格验证
+- **敏感信息过滤**: 日志自动过滤密码、token等敏感字段
 
 ### 数据可视化
 - **分布饼图**: 币种、平台、资产类型分布，支持点击跳转筛选
@@ -95,9 +99,16 @@ src/
 │   ├── index.ts
 │   └── schema.ts
 └── lib/              # 工具库
-    ├── audit-logger.ts
-    ├── rate-limiter.ts
-    └── utils.ts
+    ├── audit-logger.ts   # 审计日志
+    ├── cached-queries.ts # React cache 缓存查询
+    ├── constants.ts      # 常量定义
+    ├── env-validator.ts  # 环境变量验证
+    ├── logger.ts         # 结构化日志器
+    ├── password-validator.ts # 密码策略验证
+    ├── rate-limiter.ts   # 频率限制器
+    ├── result.ts         # 统一错误处理类型
+    ├── validators.ts     # 输入验证器
+    └── utils.ts          # 通用工具
 ```
 
 ## 数据库表
@@ -117,7 +128,26 @@ src/
 
 ## 版本历史
 
-### v0.3.0 (当前)
+### v0.5.0 (当前)
+- **安全增强**
+  - 环境变量启动验证：DATABASE_URL 和 AUTH_SECRET（>=32字符）
+  - 密码策略增强：8位最小长度、大小写字母、数字要求
+  - 输入验证增强：UUID、角色、金额参数严格验证
+  - 敏感信息日志过滤：自动过滤 password、secret、token、email
+- **代码优化**
+  - 数据库查询优化：批量查询替代 N+1 查询
+  - React cache 缓存：getCurrentUser、getExchangeRatesMap
+  - 常量提取：CENTS_PER_UNIT、YIELD_MULTIPLIER、LOGIN_RATE_LIMIT 等
+  - 统一错误处理：Result<T> 类型、ErrorCodes 常量
+- **新增模块**
+  - `env-validator.ts` - 环境变量验证器
+  - `password-validator.ts` - 密码策略验证器
+  - `validators.ts` - 通用输入验证器
+  - `logger.ts` - 结构化日志器
+  - `result.ts` - 统一错误处理类型
+  - `cached-queries.ts` - React cache 缓存查询
+
+### v0.3.0
 - 两步验证 (2FA)：可选的 TOTP 两步验证功能，增强账户安全
 - 账户克隆：一键复制现有账户信息快速创建新账户
 - UI 简化：移除仪表面板平均余额卡片、标题和副标题
