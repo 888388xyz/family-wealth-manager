@@ -84,7 +84,7 @@ export function AppSidebar({ userRole, userName, userEmail, version = "0.3.0" }:
                 <SidebarMenu>
                     <SidebarMenuItem>
                         <SidebarMenuButton asChild>
-                            <Link href="/settings"><Settings /><span>设置</span></Link>
+                            <Link href="/settings"><Settings /><span>用户设置</span></Link>
                         </SidebarMenuButton>
                     </SidebarMenuItem>
                 </SidebarMenu>

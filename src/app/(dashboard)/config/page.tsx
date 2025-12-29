@@ -2,6 +2,7 @@ import { getCurrentUserAction } from "@/actions/settings-actions"
 import { getBanksAction, getProductTypesAction, getCurrenciesAction, initializeConfigAction } from "@/actions/config-actions"
 import { redirect } from "next/navigation"
 import { ConfigManager } from "@/components/config/config-manager"
+import { BackupManager } from "@/components/settings/backup-manager"
 
 export default async function ConfigPage() {
     const user = await getCurrentUserAction()
@@ -21,9 +22,10 @@ export default async function ConfigPage() {
         <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
             <div>
                 <h2 className="text-3xl font-bold tracking-tight">系统配置</h2>
-                <p className="text-muted-foreground">管理平台、产品类型和货币选项</p>
+                <p className="text-muted-foreground">管理平台、产品类型、货币选项和系统备份</p>
             </div>
             <ConfigManager banks={banks} productTypes={productTypes} currencies={currencies} />
+            <BackupManager isAdmin={true} />
         </div>
     )
 }
