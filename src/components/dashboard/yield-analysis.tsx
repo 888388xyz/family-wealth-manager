@@ -57,18 +57,21 @@ export function YieldAnalysis({ accounts, ratesMap }: YieldAnalysisProps) {
     const currency = acc.currency || "CNY"
     const rate = ratesMap.get(currency) || 1.0
     const balanceInCNY = currency === "CNY" ? acc.balance : acc.balance * rate
-    const yieldRate = (acc.expectedYield || 0) / 100 // 从万分之一转换为百分比
+    // expectedYield 存储的是基点 (basis points)，如 400 = 4.00%
+    // 需要除以 10000 转换为小数形式 (0.04)
+    const yieldRate = (acc.expectedYield || 0) / 10000
     
     totalWeightedYield += balanceInCNY * yieldRate
     totalBalanceInCNY += balanceInCNY
   })
 
   const weightedAverageYield = totalBalanceInCNY > 0 
-    ? totalWeightedYield / totalBalanceInCNY 
+    ? totalWeightedYield / totalBalanceInCNY * 100 // 转换为百分比显示
     : 0
 
   // 计算预期年收益和月收益（基于所有有收益率的账户）
-  const expectedAnnualIncome = totalWeightedYield / 100 // 从分转换为元
+  // totalWeightedYield 是分，除以 100 转换为元
+  const expectedAnnualIncome = totalWeightedYield / 100
   const expectedMonthlyIncome = expectedAnnualIncome / 12
 
   // 找出收益最高和最低的账户
