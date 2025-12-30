@@ -3,7 +3,8 @@
 import { db } from "@/db"
 import { notifications, users, bankAccounts } from "@/db/schema"
 import { auth } from "@/auth"
-import { eq, desc, and, sql, isNotNull, lte, gte } from "drizzle-orm"
+import { eq, desc, and, sql, isNotNull, lte, gte, inArray } from "drizzle-orm"
+import { sendEmail } from "@/lib/brevo-utils"
 
 export interface Notification {
     id: string
@@ -27,6 +28,7 @@ export async function createNotificationAction(
     data: CreateNotificationData
 ): Promise<{ success: boolean; error?: string }> {
     try {
+        // 插入通知到数据库
         await db.insert(notifications).values({
             userId: data.userId,
             type: data.type,
@@ -34,6 +36,20 @@ export async function createNotificationAction(
             content: data.content,
             isRead: false,
         })
+
+        // 发送邮件通知
+        const user = await db.query.users.findFirst({
+            where: eq(users.id, data.userId)
+        })
+
+        if (user?.email) {
+            await sendEmail({
+                to: user.email,
+                subject: data.title,
+                textContent: data.content
+            })
+        }
+
         return { success: true }
     } catch (error) {
         console.error("Failed to create notification:", error)
@@ -158,19 +174,22 @@ export async function checkMaturityRemindersAction(): Promise<{
     try {
         const today = new Date()
         const todayStr = today.toISOString().split('T')[0]
-        
+
         // 计算7天后和1天后的日期
         const sevenDaysLater = new Date(today)
         sevenDaysLater.setDate(sevenDaysLater.getDate() + 7)
         const sevenDaysLaterStr = sevenDaysLater.toISOString().split('T')[0]
-        
+
         const oneDayLater = new Date(today)
         oneDayLater.setDate(oneDayLater.getDate() + 1)
         const oneDayLaterStr = oneDayLater.toISOString().split('T')[0]
 
-        // 查找所有设置了到期日期的账户
+        // 查找所有设置了到期日期的账户，并包含用户信息
         const accountsWithMaturity = await db.query.bankAccounts.findMany({
             where: isNotNull(bankAccounts.maturityDate),
+            with: {
+                user: true
+            }
         })
 
         let remindersCreated = 0
@@ -233,6 +252,15 @@ export async function checkMaturityRemindersAction(): Promise<{
                 isRead: false,
             })
 
+            // 发送邮件提醒
+            if (account.user?.email) {
+                await sendEmail({
+                    to: account.user.email,
+                    subject: title,
+                    textContent: content
+                })
+            }
+
             remindersCreated++
         }
 
@@ -261,7 +289,7 @@ export async function getUpcomingMaturitiesAction(
         const today = new Date()
         const futureDate = new Date(today)
         futureDate.setDate(futureDate.getDate() + daysAhead)
-        
+
         const todayStr = today.toISOString().split('T')[0]
         const futureDateStr = futureDate.toISOString().split('T')[0]
 
