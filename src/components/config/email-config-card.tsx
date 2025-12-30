@@ -76,31 +76,43 @@ export function EmailConfigCard({ initialSettings }: EmailConfigProps) {
                             onChange={(e: any) => setEmailFrom(e.target.value)}
                         />
                     </div>
-                    <div className="space-y-2 pt-2 border-t">
-                        <Label htmlFor="test-recipient" className="text-xs text-muted-foreground font-normal">测试收件人（可选，默认发送至个人邮箱）</Label>
+
+                    <div className="pt-2 border-t">
+                        <div className="flex items-center justify-between mb-2">
+                            <Label htmlFor="test-recipient" className="text-sm font-medium">配置测试</Label>
+                        </div>
                         <div className="flex gap-2">
                             <Input
                                 id="test-recipient"
-                                placeholder="test@example.com"
+                                placeholder="测试收件邮箱（可选）"
                                 value={testRecipient}
-                                size={1}
-                                className="h-8 text-sm"
+                                className="h-9 text-sm flex-1"
                                 onChange={(e: any) => setTestRecipient(e.target.value)}
                             />
-                            <Button variant="outline" onClick={handleTest} disabled={isTesting || isSaving} size="sm" className="h-8 gap-1">
-                                {isTesting ? "测试中..." : <><Send className="h-3 w-3" /> 测试</>}
+                            <Button
+                                variant="outline"
+                                onClick={handleTest}
+                                disabled={isTesting || isSaving}
+                                size="sm"
+                                className="h-9 gap-1"
+                            >
+                                {isTesting ? "发送中..." : <><Send className="h-4 w-4" /> 测试</>}
                             </Button>
                         </div>
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                            提示：该地址仅用于本次测试，正式通知将发送至用户注册邮箱。
+                        </p>
                     </div>
                 </div>
-                <div className="flex items-center gap-2 pt-2">
-                    <Button onClick={handleSave} disabled={isSaving} className="w-full gap-2">
+
+                <div className="flex items-center justify-between gap-2 pt-2">
+                    <Button onClick={handleSave} disabled={isSaving} className="flex-1 gap-2">
                         {isSaving ? "正在保存..." : <><Save className="h-4 w-4" /> 保存配置</>}
                     </Button>
                     {lastSaved && (
-                        <span className="flex items-center gap-1 text-sm text-green-600 animate-in fade-in slide-in-from-left-2 absolute right-8">
+                        <div className="flex items-center gap-1 text-sm text-green-600 animate-in fade-in slide-in-from-right-2">
                             <CheckCircle2 className="h-4 w-4" /> 已保存
-                        </span>
+                        </div>
                     )}
                 </div>
             </CardContent>
