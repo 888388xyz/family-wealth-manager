@@ -135,13 +135,14 @@ export async function updateSystemSettingAction(key: string, value: string) {
 import { sendEmail } from "@/lib/brevo-utils"
 import { getCurrentUserAction } from "./settings-actions"
 
-export async function testEmailAction() {
+export async function testEmailAction(toEmail?: string) {
     return adminAction(async () => {
         const user = await getCurrentUserAction()
-        if (!user?.email) return { error: "当前用户无邮箱，无法进行测试" }
+        const recipient = toEmail || user?.email
+        if (!recipient) return { error: "未指定测试收件人，且当前用户无邮箱" }
 
         const result = await sendEmail({
-            to: user.email,
+            to: recipient,
             subject: "Family Wealth Manager - 邮件通知测试",
             textContent: "这是一封测试邮件，证明你的 Brevo 邮件通知配置已生效。",
             htmlContent: "<h1>测试成功</h1><p>这是一封测试邮件，证明你的 Brevo 邮件通知配置已生效。</p>"

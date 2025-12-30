@@ -15,6 +15,7 @@ interface EmailConfigProps {
 export function EmailConfigCard({ initialSettings }: EmailConfigProps) {
     const [apiKey, setApiKey] = useState(initialSettings.BREVO_API_KEY || "")
     const [emailFrom, setEmailFrom] = useState(initialSettings.EMAIL_FROM || "")
+    const [testRecipient, setTestRecipient] = useState("")
     const [isSaving, setIsSaving] = useState(false)
     const [isTesting, setIsTesting] = useState(false)
     const [lastSaved, setLastSaved] = useState<Date | null>(null)
@@ -36,9 +37,9 @@ export function EmailConfigCard({ initialSettings }: EmailConfigProps) {
     async function handleTest() {
         setIsTesting(true)
         try {
-            const result = await testEmailAction()
+            const result = await testEmailAction(testRecipient || undefined)
             if (result.error) alert(`测试失败: ${result.error}`)
-            else alert("测试邮件已发送到你的注册邮箱，请查收！")
+            else alert(`测试邮件已发送至: ${testRecipient || "你的注册邮箱"}，请查收！`)
         } catch (error) {
             alert("测试请求失败")
         } finally {
@@ -75,16 +76,29 @@ export function EmailConfigCard({ initialSettings }: EmailConfigProps) {
                             onChange={(e: any) => setEmailFrom(e.target.value)}
                         />
                     </div>
+                    <div className="space-y-2 pt-2 border-t">
+                        <Label htmlFor="test-recipient" className="text-xs text-muted-foreground font-normal">测试收件人（可选，默认发送至个人邮箱）</Label>
+                        <div className="flex gap-2">
+                            <Input
+                                id="test-recipient"
+                                placeholder="test@example.com"
+                                value={testRecipient}
+                                size={1}
+                                className="h-8 text-sm"
+                                onChange={(e: any) => setTestRecipient(e.target.value)}
+                            />
+                            <Button variant="outline" onClick={handleTest} disabled={isTesting || isSaving} size="sm" className="h-8 gap-1">
+                                {isTesting ? "测试中..." : <><Send className="h-3 w-3" /> 测试</>}
+                            </Button>
+                        </div>
+                    </div>
                 </div>
-                <div className="flex flex-wrap items-center gap-2 pt-2">
-                    <Button onClick={handleSave} disabled={isSaving} size="sm" className="gap-2">
-                        {isSaving ? "正在保存..." : <><Save className="h-4 w-4" /> 保存</>}
-                    </Button>
-                    <Button variant="outline" onClick={handleTest} disabled={isTesting || isSaving} size="sm" className="gap-2">
-                        {isTesting ? "测试中..." : <><Send className="h-4 w-4" /> 测试</>}
+                <div className="flex items-center gap-2 pt-2">
+                    <Button onClick={handleSave} disabled={isSaving} className="w-full gap-2">
+                        {isSaving ? "正在保存..." : <><Save className="h-4 w-4" /> 保存配置</>}
                     </Button>
                     {lastSaved && (
-                        <span className="flex items-center gap-1 text-sm text-green-600 animate-in fade-in slide-in-from-left-2 ml-auto">
+                        <span className="flex items-center gap-1 text-sm text-green-600 animate-in fade-in slide-in-from-left-2 absolute right-8">
                             <CheckCircle2 className="h-4 w-4" /> 已保存
                         </span>
                     )}
