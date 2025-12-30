@@ -149,6 +149,14 @@ export const notifications = pgTable("notifications", {
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
 });
 
+// --- 系统设置 ---
+
+export const systemSettings = pgTable("system_settings", {
+    key: text("key").primaryKey(),
+    value: text("value").notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().$onUpdate(() => new Date()),
+});
+
 // --- 每日资产快照 ---
 
 export const dailySnapshots = pgTable("daily_snapshots", {

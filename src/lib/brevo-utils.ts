@@ -1,6 +1,6 @@
-/**
- * Brevo (formerly Sendinblue) Email Utility
- */
+import { db } from "@/db";
+import { systemSettings } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
 const BREVO_API_URL = "https://api.brevo.com/v3/smtp/email";
 
@@ -15,11 +15,15 @@ interface SendEmailParams {
  * Sends an email using the Brevo REST API.
  */
 export async function sendEmail({ to, subject, textContent, htmlContent }: SendEmailParams) {
-    const BREVO_API_KEY = process.env.BREVO_API_KEY;
-    const EMAIL_FROM = process.env.EMAIL_FROM || "wealth-manager@oheng.com"; // Default if not set
+    // Fetch settings from database instead of process.env
+    const settings = await db.query.systemSettings.findMany();
+    const config = settings.reduce((acc, curr) => ({ ...acc, [curr.key]: curr.value }), {} as Record<string, string>);
+
+    const BREVO_API_KEY = config.BREVO_API_KEY;
+    const EMAIL_FROM = config.EMAIL_FROM || "wealth-manager@oheng.com";
 
     if (!BREVO_API_KEY) {
-        console.error("BREVO_API_KEY is not configured in environment variables.");
+        console.warn("BREVO_API_KEY is not configured in database settings.");
         return { success: false, error: "Email service not configured" };
     }
 

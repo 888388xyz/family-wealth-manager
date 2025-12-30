@@ -11,9 +11,8 @@ import path from "path";
 dotenv.config({ path: path.resolve(process.cwd(), ".env.local") });
 
 async function test() {
-    console.log("Starting Brevo test...");
-    console.log("API Key present:", !!process.env.BREVO_API_KEY);
-    console.log("Email From:", process.env.EMAIL_FROM || "wealth-manager@oheng.com");
+    console.log("Starting Brevo test (Database-driven)...");
+
 
     const result = await sendEmail({
         to: "lixia@example.com", // You might want to change this to your email for testing

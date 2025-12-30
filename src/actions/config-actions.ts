@@ -1,7 +1,7 @@
 "use server"
 
 import { db } from "@/db"
-import { systemBanks, systemProductTypes, systemCurrencies } from "@/db/schema"
+import { systemBanks, systemProductTypes, systemCurrencies, systemSettings } from "@/db/schema"
 import { eq, asc } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { adminAction } from "@/lib/action-utils"
@@ -102,6 +102,31 @@ export async function deleteCurrencyAction(id: string) {
     })
 }
 
+// --- System Settings ---
+export async function getSystemSettingsAction() {
+    const settings = await db.query.systemSettings.findMany()
+    // Convert array to object for easier use: { key: value }
+    return settings.reduce((acc, curr) => ({ ...acc, [curr.key]: curr.value }), {} as Record<string, string>)
+}
+
+export async function updateSystemSettingAction(key: string, value: string) {
+    return adminAction(async () => {
+        try {
+            await db.insert(systemSettings)
+                .values({ key, value })
+                .onConflictDoUpdate({
+                    target: systemSettings.key,
+                    set: { value, updatedAt: new Date() }
+                })
+            revalidatePath("/config")
+            return { success: true }
+        } catch (err) {
+            console.error("[Settings] Update failed:", err)
+            return { error: "更新设置失败" }
+        }
+    })
+}
+
 // --- Initialize default config (called during page render, no revalidation) ---
 export async function initializeConfigAction() {
     return adminAction(async () => {
@@ -140,6 +165,18 @@ export async function initializeConfigAction() {
                 ]
                 for (let i = 0; i < defaultCurrencies.length; i++) {
                     await db.insert(systemCurrencies).values({ ...defaultCurrencies[i], sortOrder: i }).onConflictDoNothing()
+                }
+            }
+
+            // Seed default email settings
+            const existingSettings = await db.query.systemSettings.findMany()
+            if (existingSettings.length === 0) {
+                const defaultSettings = [
+                    { key: "BREVO_API_KEY", value: process.env.BREVO_API_KEY || "" },
+                    { key: "EMAIL_FROM", value: process.env.EMAIL_FROM || "wealth-manager@oheng.com" },
+                ]
+                for (const setting of defaultSettings) {
+                    await db.insert(systemSettings).values(setting).onConflictDoNothing()
                 }
             }
 
