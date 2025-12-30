@@ -26,9 +26,11 @@ export default async function ConfigPage() {
                 <h2 className="text-3xl font-bold tracking-tight">系统配置</h2>
                 <p className="text-muted-foreground">管理平台、产品类型、货币选项、邮件通知及系统备份</p>
             </div>
-            <EmailConfigCard initialSettings={settings} />
             <ConfigManager banks={banks} productTypes={productTypes} currencies={currencies} />
-            <BackupManager isAdmin={true} />
+            <div className="grid gap-4 md:grid-cols-2">
+                <EmailConfigCard initialSettings={settings} />
+                <BackupManager isAdmin={true} />
+            </div>
         </div>
     )
 }

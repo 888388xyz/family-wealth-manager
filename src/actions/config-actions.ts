@@ -104,9 +104,14 @@ export async function deleteCurrencyAction(id: string) {
 
 // --- System Settings ---
 export async function getSystemSettingsAction() {
-    const settings = await db.query.systemSettings.findMany()
-    // Convert array to object for easier use: { key: value }
-    return settings.reduce((acc, curr) => ({ ...acc, [curr.key]: curr.value }), {} as Record<string, string>)
+    try {
+        const settings = await db.query.systemSettings.findMany()
+        // Convert array to object for easier use: { key: value }
+        return settings.reduce<Record<string, string>>((acc, curr) => ({ ...acc, [curr.key]: curr.value }), {})
+    } catch (err) {
+        console.warn("[Config] Failed to fetch settings, table might not exist yet:", err)
+        return {}
+    }
 }
 
 export async function updateSystemSettingAction(key: string, value: string) {
@@ -124,6 +129,26 @@ export async function updateSystemSettingAction(key: string, value: string) {
             console.error("[Settings] Update failed:", err)
             return { error: "更新设置失败" }
         }
+    })
+}
+
+import { sendEmail } from "@/lib/brevo-utils"
+import { getCurrentUserAction } from "./settings-actions"
+
+export async function testEmailAction() {
+    return adminAction(async () => {
+        const user = await getCurrentUserAction()
+        if (!user?.email) return { error: "当前用户无邮箱，无法进行测试" }
+
+        const result = await sendEmail({
+            to: user.email,
+            subject: "Family Wealth Manager - 邮件通知测试",
+            textContent: "这是一封测试邮件，证明你的 Brevo 邮件通知配置已生效。",
+            htmlContent: "<h1>测试成功</h1><p>这是一封测试邮件，证明你的 Brevo 邮件通知配置已生效。</p>"
+        })
+
+        if (!result.success) return { error: result.error }
+        return { success: true }
     })
 }
 
@@ -169,15 +194,19 @@ export async function initializeConfigAction() {
             }
 
             // Seed default email settings
-            const existingSettings = await db.query.systemSettings.findMany()
-            if (existingSettings.length === 0) {
-                const defaultSettings = [
-                    { key: "BREVO_API_KEY", value: process.env.BREVO_API_KEY || "" },
-                    { key: "EMAIL_FROM", value: process.env.EMAIL_FROM || "wealth-manager@oheng.com" },
-                ]
-                for (const setting of defaultSettings) {
-                    await db.insert(systemSettings).values(setting).onConflictDoNothing()
+            try {
+                const existingSettings = await db.query.systemSettings.findMany()
+                if (existingSettings.length === 0) {
+                    const defaultSettings = [
+                        { key: "BREVO_API_KEY", value: process.env.BREVO_API_KEY || "" },
+                        { key: "EMAIL_FROM", value: process.env.EMAIL_FROM || "wealth-manager@oheng.com" },
+                    ]
+                    for (const setting of defaultSettings) {
+                        await db.insert(systemSettings).values(setting).onConflictDoNothing()
+                    }
                 }
+            } catch (err) {
+                console.warn("[Config] Skipping settings seed, table might not exist yet:", err)
             }
 
             return { success: true }

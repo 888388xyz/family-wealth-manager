@@ -63,7 +63,7 @@ importers:
         specifier: ^17.2.3
         version: 17.2.3
       drizzle-orm:
-        specifier: ^0.45.1
+        specifier: 0.45.1
         version: 0.45.1(@libsql/client@0.15.15)(@neondatabase/serverless@1.0.2)(@types/better-sqlite3@7.6.13)(@types/pg@8.16.0)(better-sqlite3@12.5.0)(pg@8.16.3)(postgres@3.4.7)
       lucide-react:
         specifier: ^0.562.0
