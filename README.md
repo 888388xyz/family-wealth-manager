@@ -8,7 +8,8 @@
 - **仪表面板**: 资产总览、分布饼图、趋势图表、收益分析、历史对比
 - **账户管理**: 多币种账户管理、余额追踪、到期提醒
 - **用户管理**: 管理员可管理用户和角色
-- **系统配置**: 自定义银行/平台、产品类型、币种
+- **系统配置**: 管理平台、产品类型、货币选项、邮件通知（Brevo API）
+- **系统备份**: 导出及恢复完整系统数据（AES-256 加密）
 
 ### 安全特性
 - **权限控制**: 用户只能操作自己的账户，管理员拥有全局权限
@@ -98,9 +99,10 @@ src/
 ├── db/               # 数据库配置
 │   ├── index.ts
 │   └── schema.ts
-└── lib/              # 工具库
-    ├── audit-logger.ts   # 审计日志
-    ├── cached-queries.ts # React cache 缓存查询
+├── lib/              # 工具库
+│   ├── audit-logger.ts   # 审计日志
+│   ├── brevo-utils.ts    # 邮件发送工具
+│   ├── cached-queries.ts # React cache 缓存查询
     ├── constants.ts      # 常量定义
     ├── env-validator.ts  # 环境变量验证
     ├── logger.ts         # 结构化日志器
@@ -125,6 +127,7 @@ src/
 | system_banks | 银行/平台配置 |
 | system_product_types | 产品类型配置 |
 | system_currencies | 币种配置 |
+| system_settings | 系统通用配置（如邮件 API Key） |
 
 ## 版本历史
 
@@ -134,6 +137,10 @@ src/
   - 密码策略增强：8位最小长度、大小写字母、数字要求
   - 输入验证增强：UUID、角色、金额参数严格验证
   - 敏感信息日志过滤：自动过滤 password、secret、token、email
+- **系统设置与邮件通知**
+  - **数据库驱动配置**：Brevo API Key 和发件人邮箱现已移至数据库管理，支持在界面直接修改
+  - **邮件测试功能**：支持在配置页发送测试邮件验证配置
+  - **初始化脚本优化**：支持从 `.env.local` 自动迁移初始配置到数据库
 - **代码优化**
   - 数据库查询优化：批量查询替代 N+1 查询
   - React cache 缓存：getCurrentUser、getExchangeRatesMap
