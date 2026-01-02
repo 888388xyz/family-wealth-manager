@@ -40,9 +40,7 @@
 
 ```bash
 AUTH_SECRET="your_generated_secret"  # 生成命令: npx auth secret
-DATABASE_URL="file:./sqlite.db"      # SQLite 本地数据库
-# 或使用 PostgreSQL:
-# DATABASE_URL="postgresql://user:password@localhost:5432/dbname"
+DATABASE_URL="postgresql://user:password@localhost:5432/dbname" # PostgreSQL 连接字符串 (支持 Neon)
 ```
 
 ### 安装步骤
@@ -72,7 +70,7 @@ DATABASE_URL="file:./sqlite.db"      # SQLite 本地数据库
 ## 技术栈
 
 - **框架**: Next.js 15 (App Router)
-- **数据库**: SQLite / PostgreSQL + Drizzle ORM
+- **数据库**: PostgreSQL + Drizzle ORM
 - **UI 组件**: Tailwind CSS + shadcn/ui
 - **图表**: Recharts
 - **认证**: NextAuth.js (Auth.js)

@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { EditAccountDialog } from "./edit-account-dialog"
 import { AddAccountDialog } from "./add-account-dialog"
 import { createCloneData, type CloneData } from "@/lib/account-utils"
+import { AccountTagBadges } from "./account-tag-badges"
 
 interface Account {
     id: string
@@ -112,8 +113,8 @@ interface AccountTableProps {
     exchangeRates?: ExchangeRate[]
 }
 
-export function AccountTable({ 
-    accounts, 
+export function AccountTable({
+    accounts,
     isAdmin,
     productTypes = [],
     banks = [],
@@ -122,7 +123,7 @@ export function AccountTable({
 }: AccountTableProps) {
     const searchParams = useSearchParams()
     const router = useRouter()
-    
+
     const [editingId, setEditingId] = useState<string | null>(null)
     const [editValue, setEditValue] = useState("")
     const [mounted, setMounted] = useState(false)
@@ -143,7 +144,7 @@ export function AccountTable({
         const bankParam = searchParams.get("bank")
         const typeParam = searchParams.get("type")
         const currencyParam = searchParams.get("currency")
-        
+
         if (bankParam) setFilterBank(bankParam)
         if (typeParam) setFilterType(typeParam)
         if (currencyParam) setFilterCurrency(currencyParam)
@@ -174,7 +175,7 @@ export function AccountTable({
         let result = [...accounts]
         if (searchText) {
             const lower = searchText.toLowerCase()
-            result = result.filter(a => 
+            result = result.filter(a =>
                 a.bankName.toLowerCase().includes(lower) ||
                 a.accountName.toLowerCase().includes(lower) ||
                 (a.user?.name?.toLowerCase().includes(lower))
@@ -258,13 +259,13 @@ export function AccountTable({
         setCloneData(data)
         setCloneDialogOpen(true)
     }
-    const clearFilters = () => { 
-        setSearchText(""); 
-        setFilterBank("全部"); 
-        setFilterType("全部"); 
-        setFilterCurrency("全部"); 
-        setFilterOwner("全部"); 
-        setSortField(null); 
+    const clearFilters = () => {
+        setSearchText("");
+        setFilterBank("全部");
+        setFilterType("全部");
+        setFilterCurrency("全部");
+        setFilterOwner("全部");
+        setSortField(null);
         setSortDirection(null);
         // Clear URL params
         router.push("/accounts")
@@ -324,6 +325,7 @@ export function AccountTable({
                             <TableHead className="cursor-pointer hover:bg-muted/50 font-semibold" onClick={() => handleSort("币种")}><div className="flex items-center">币种<SortIcon field="币种" /></div></TableHead>
                             <TableHead className="cursor-pointer hover:bg-muted/50 text-right font-semibold" onClick={() => handleSort("余额")}><div className="flex items-center justify-end">余额<SortIcon field="余额" /></div></TableHead>
                             <TableHead className="cursor-pointer hover:bg-muted/50 text-right font-semibold" onClick={() => handleSort("expectedYield")}><div className="flex items-center justify-end">预期收益<SortIcon field="expectedYield" /></div></TableHead>
+                            <TableHead className="font-semibold">标签</TableHead>
                             <TableHead className="text-right font-semibold">操作</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -351,6 +353,7 @@ export function AccountTable({
                                     )}
                                 </TableCell>
                                 <TableCell className="text-right text-muted-foreground">{formatYield(account.expectedYield)}</TableCell>
+                                <TableCell><AccountTagBadges accountId={account.id} /></TableCell>
                                 <TableCell className="text-right">
                                     <Button variant="ghost" size="icon" onClick={() => handleClone(account)} title="克隆账户">
                                         <Copy className="h-4 w-4 text-muted-foreground" />
@@ -365,7 +368,7 @@ export function AccountTable({
                             </TableRow>
                         ))}
                         {filteredAndSortedAccounts.length === 0 && (
-                            <TableRow><TableCell colSpan={isAdmin ? 8 : 7} className="text-center h-24 text-muted-foreground">{hasFilters ? "没有匹配的账户" : "暂无账户"}</TableCell></TableRow>
+                            <TableRow><TableCell colSpan={isAdmin ? 9 : 8} className="text-center h-24 text-muted-foreground">{hasFilters ? "没有匹配的账户" : "暂无账户"}</TableCell></TableRow>
                         )}
                     </TableBody>
                 </Table>

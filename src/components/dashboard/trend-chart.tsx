@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { LineChart } from "@/components/charts/line-chart"
 import { getDailySnapshotsAction, createDailySnapshotAction } from "@/actions/snapshot-actions"
 import { TrendingUp, RefreshCw } from "lucide-react"
+import { CENTS_PER_UNIT } from "@/lib/constants"
 import { cn } from "@/lib/utils"
 
 type TimeRange = 30 | 90 | 365
@@ -22,10 +23,10 @@ function ChartSkeleton() {
         <div className="h-[300px] flex flex-col gap-4 p-4">
             <div className="flex justify-between items-end h-full">
                 {Array.from({ length: 12 }).map((_, i) => (
-                    <Skeleton 
-                        key={i} 
-                        className="w-6" 
-                        style={{ height: `${30 + Math.random() * 60}%` }} 
+                    <Skeleton
+                        key={i}
+                        className="w-6"
+                        style={{ height: `${30 + Math.random() * 60}%` }}
                     />
                 ))}
             </div>
@@ -63,7 +64,7 @@ export function TrendChart({ className, initialData }: TrendChartProps) {
                 setData(
                     snapshots.map((s: any) => ({
                         date: s.snapshotDate,
-                        value: s.totalBalance / 100, // 转换为元
+                        value: s.totalBalance / CENTS_PER_UNIT, // 转换为元
                     }))
                 )
             }

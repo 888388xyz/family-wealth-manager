@@ -21,6 +21,7 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { useState } from "react"
 import { updateAccountAction } from "@/actions/account-actions"
+import { TagSelector } from "./tag-selector"
 
 interface Bank {
     id: string
@@ -219,6 +220,7 @@ export function EditAccountDialog({
                             className="col-span-3"
                         />
                     </div>
+                    <TagSelector accountId={account.id} />
                     <DialogFooter>
                         <Button
                             type="button"
