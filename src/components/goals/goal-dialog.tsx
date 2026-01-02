@@ -21,8 +21,29 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select"
-import { Plus } from "lucide-react"
+import { Plus, Check, ChevronsUpDown } from "lucide-react"
 import { createGoalAction, updateGoalAction } from "@/actions/goal-actions"
+import { cn } from "@/lib/utils"
+import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+} from "@/components/ui/command"
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover"
+import { Badge } from "@/components/ui/badge"
+
+interface Account {
+    id: string
+    bankName: string
+    accountName: string
+}
 
 interface Goal {
     id: string
@@ -33,6 +54,7 @@ interface Goal {
     deadline: string | null
     category: string | null
     notes: string | null
+    linkedAccountIds: string[] | null
 }
 
 interface GoalDialogProps {
@@ -40,9 +62,10 @@ interface GoalDialogProps {
     onOpenChange?: (open: boolean) => void
     goal?: Goal
     mode?: "create" | "edit"
+    accounts?: Account[]
 }
 
-export function GoalDialog({ open, onOpenChange, goal, mode = "create" }: GoalDialogProps) {
+export function GoalDialog({ open, onOpenChange, goal, mode = "create", accounts = [] }: GoalDialogProps) {
     const [internalOpen, setInternalOpen] = useState(false)
     const [isPending, startTransition] = useTransition()
 
@@ -55,6 +78,8 @@ export function GoalDialog({ open, onOpenChange, goal, mode = "create" }: GoalDi
     const [deadline, setDeadline] = useState(goal?.deadline || "")
     const [category, setCategory] = useState(goal?.category || "savings")
     const [notes, setNotes] = useState(goal?.notes || "")
+    const [linkedAccountIds, setLinkedAccountIds] = useState<string[]>(goal?.linkedAccountIds || [])
+    const [openCombobox, setOpenCombobox] = useState(false)
 
     const resetForm = () => {
         if (!goal) {
@@ -64,7 +89,16 @@ export function GoalDialog({ open, onOpenChange, goal, mode = "create" }: GoalDi
             setDeadline("")
             setCategory("savings")
             setNotes("")
+            setLinkedAccountIds([])
         }
+    }
+
+    const toggleAccount = (accountId: string) => {
+        setLinkedAccountIds(current =>
+            current.includes(accountId)
+                ? current.filter(id => id !== accountId)
+                : [...current, accountId]
+        )
     }
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -78,6 +112,7 @@ export function GoalDialog({ open, onOpenChange, goal, mode = "create" }: GoalDi
                     deadline: deadline || null,
                     category: category || null,
                     notes: notes || null,
+                    linkedAccountIds: linkedAccountIds.length > 0 ? linkedAccountIds : null,
                 })
             } else {
                 await createGoalAction({
@@ -86,6 +121,7 @@ export function GoalDialog({ open, onOpenChange, goal, mode = "create" }: GoalDi
                     deadline: deadline || undefined,
                     category: category || undefined,
                     notes: notes || undefined,
+                    linkedAccountIds: linkedAccountIds.length > 0 ? linkedAccountIds : undefined,
                 })
             }
             setIsOpen(false)
@@ -103,7 +139,7 @@ export function GoalDialog({ open, onOpenChange, goal, mode = "create" }: GoalDi
                     </Button>
                 </DialogTrigger>
             )}
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-[500px]">
                 <form onSubmit={handleSubmit}>
                     <DialogHeader>
                         <DialogTitle>{mode === "edit" ? "编辑目标" : "新建目标"}</DialogTitle>
@@ -122,6 +158,66 @@ export function GoalDialog({ open, onOpenChange, goal, mode = "create" }: GoalDi
                                 required
                             />
                         </div>
+
+                        <div className="grid gap-2">
+                            <Label>关联账户 (自动计算当前金额)</Label>
+                            <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        role="combobox"
+                                        aria-expanded={openCombobox}
+                                        className="justify-between"
+                                    >
+                                        {linkedAccountIds.length > 0
+                                            ? `已选择 ${linkedAccountIds.length} 个账户`
+                                            : "选择账户..."}
+                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[400px] p-0">
+                                    <Command>
+                                        <CommandInput placeholder="搜索账户..." />
+                                        <CommandList>
+                                            <CommandEmpty>未找到账户</CommandEmpty>
+                                            <CommandGroup>
+                                                {accounts.map((account) => (
+                                                    <CommandItem
+                                                        key={account.id}
+                                                        value={account.bankName + " " + account.accountName}
+                                                        onSelect={() => toggleAccount(account.id)}
+                                                    >
+                                                        <Check
+                                                            className={cn(
+                                                                "mr-2 h-4 w-4",
+                                                                linkedAccountIds.includes(account.id)
+                                                                    ? "opacity-100"
+                                                                    : "opacity-0"
+                                                            )}
+                                                        />
+                                                        {account.bankName} - {account.accountName}
+                                                    </CommandItem>
+                                                ))}
+                                            </CommandGroup>
+                                        </CommandList>
+                                    </Command>
+                                </PopoverContent>
+                            </Popover>
+                            {linkedAccountIds.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                    {linkedAccountIds.map(id => {
+                                        const acc = accounts.find(a => a.id === id)
+                                        if (!acc) return null
+                                        return (
+                                            <Badge key={id} variant="secondary" className="px-2 py-0.5 text-xs">
+                                                {acc.bankName}-{acc.accountName}
+                                            </Badge>
+                                        )
+                                    })}
+                                </div>
+                            )}
+                        </div>
+
                         <div className="grid grid-cols-2 gap-4">
                             <div className="grid gap-2">
                                 <Label htmlFor="targetAmount">目标金额 (元)</Label>
@@ -147,7 +243,12 @@ export function GoalDialog({ open, onOpenChange, goal, mode = "create" }: GoalDi
                                         value={currentAmount}
                                         onChange={(e) => setCurrentAmount(e.target.value)}
                                         placeholder="50000"
+                                        disabled={linkedAccountIds.length > 0}
+                                        className={cn(linkedAccountIds.length > 0 && "bg-muted")}
                                     />
+                                    {linkedAccountIds.length > 0 && (
+                                        <p className="text-[10px] text-muted-foreground">已关联账户，自动计算</p>
+                                    )}
                                 </div>
                             )}
                         </div>

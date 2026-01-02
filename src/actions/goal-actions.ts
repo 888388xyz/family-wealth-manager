@@ -1,7 +1,7 @@
 "use server"
 
 import { db } from "@/db"
-import { assetGoals } from "@/db/schema"
+import { assetGoals, bankAccounts } from "@/db/schema"
 import { auth } from "@/auth"
 import { eq, and, desc } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
@@ -17,7 +17,24 @@ export async function getGoalsAction() {
         orderBy: [desc(assetGoals.createdAt)],
     })
 
-    return goals
+    // Fetch all accounts to calculate dynamic balances
+    const accounts = await db.query.bankAccounts.findMany({
+        where: eq(bankAccounts.userId, session.user.id),
+    })
+
+    const accountMap = new Map(accounts.map(a => [a.id, a.balance]))
+
+    // Dynamically calculate currentAmount for goals with linked accounts
+    return goals.map(goal => {
+        let currentAmount = goal.currentAmount || 0
+        if (goal.linkedAccountIds && Array.isArray(goal.linkedAccountIds) && goal.linkedAccountIds.length > 0) {
+            const linkedBalance = goal.linkedAccountIds.reduce((sum, accId) => {
+                return sum + (accountMap.get(accId) || 0)
+            }, 0)
+            currentAmount = linkedBalance
+        }
+        return { ...goal, currentAmount }
+    })
 }
 
 // 创建新目标
@@ -28,6 +45,7 @@ export async function createGoalAction(data: {
     deadline?: string
     category?: string
     notes?: string
+    linkedAccountIds?: string[]
 }) {
     const session = await auth()
     if (!session?.user?.id) return { error: "未登录" }
@@ -41,6 +59,7 @@ export async function createGoalAction(data: {
         deadline: data.deadline || null,
         category: data.category || null,
         notes: data.notes || null,
+        linkedAccountIds: data.linkedAccountIds || null,
     }).returning()
 
     revalidatePath("/goals")
@@ -57,6 +76,7 @@ export async function updateGoalAction(id: string, data: {
     deadline?: string | null
     category?: string | null
     notes?: string | null
+    linkedAccountIds?: string[] | null
     isCompleted?: boolean
 }) {
     const session = await auth()
@@ -77,6 +97,7 @@ export async function updateGoalAction(id: string, data: {
     if (data.deadline !== undefined) updateData.deadline = data.deadline
     if (data.category !== undefined) updateData.category = data.category
     if (data.notes !== undefined) updateData.notes = data.notes
+    if (data.linkedAccountIds !== undefined) updateData.linkedAccountIds = data.linkedAccountIds
     if (data.isCompleted !== undefined) updateData.isCompleted = data.isCompleted
 
     await db.update(assetGoals).set(updateData).where(eq(assetGoals.id, id))
@@ -110,6 +131,7 @@ export async function getGoalsSummaryAction() {
     const session = await auth()
     if (!session?.user?.id) return null
 
+    // 1. Get unfinished goals
     const goals = await db.query.assetGoals.findMany({
         where: and(
             eq(assetGoals.userId, session.user.id),
@@ -118,9 +140,27 @@ export async function getGoalsSummaryAction() {
         orderBy: [desc(assetGoals.createdAt)],
     })
 
-    const total = goals.length
-    const totalTarget = goals.reduce((sum, g) => sum + (g.targetAmount || 0), 0)
-    const totalCurrent = goals.reduce((sum, g) => sum + (g.currentAmount || 0), 0)
+    // 2. Fetch all accounts to calculate dynamic balances if needed
+    const accounts = await db.query.bankAccounts.findMany({
+        where: eq(bankAccounts.userId, session.user.id),
+    })
+    const accountMap = new Map(accounts.map(a => [a.id, a.balance]))
+
+    // 3. Process goals to get accurate currentAmount
+    const processedGoals = goals.map(goal => {
+        let currentAmount = goal.currentAmount || 0
+        if (goal.linkedAccountIds && Array.isArray(goal.linkedAccountIds) && goal.linkedAccountIds.length > 0) {
+            const linkedBalance = goal.linkedAccountIds.reduce((sum, accId) => {
+                return sum + (accountMap.get(accId) || 0)
+            }, 0)
+            currentAmount = linkedBalance
+        }
+        return { ...goal, currentAmount }
+    })
+
+    const total = processedGoals.length
+    const totalTarget = processedGoals.reduce((sum, g) => sum + (g.targetAmount || 0), 0)
+    const totalCurrent = processedGoals.reduce((sum, g) => sum + (g.currentAmount || 0), 0)
     const overallProgress = totalTarget > 0 ? (totalCurrent / totalTarget) * 100 : 0
 
     return {
@@ -128,6 +168,6 @@ export async function getGoalsSummaryAction() {
         totalTarget,
         totalCurrent,
         overallProgress,
-        goals: goals.slice(0, 3), // 只返回前3个用于展示
+        goals: processedGoals.slice(0, 3), // 只返回前3个用于展示
     }
 }

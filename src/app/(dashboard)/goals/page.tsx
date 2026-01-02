@@ -1,4 +1,5 @@
 import { getGoalsAction } from "@/actions/goal-actions"
+import { getAccountsAction } from "@/actions/account-actions"
 import { redirect } from "next/navigation"
 import { auth } from "@/auth"
 import { GoalCard } from "@/components/goals/goal-card"
@@ -10,7 +11,10 @@ export default async function GoalsPage() {
         redirect("/login")
     }
 
-    const goals = await getGoalsAction()
+    const [goals, accounts] = await Promise.all([
+        getGoalsAction(),
+        getAccountsAction()
+    ])
 
     const activeGoals = goals.filter(g => !g.isCompleted)
     const completedGoals = goals.filter(g => g.isCompleted)
@@ -24,7 +28,7 @@ export default async function GoalsPage() {
                         追踪您的财富目标进度
                     </p>
                 </div>
-                <GoalDialog />
+                <GoalDialog accounts={accounts || []} />
             </div>
 
             {goals.length === 0 ? (

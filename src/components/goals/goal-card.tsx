@@ -20,6 +20,7 @@ interface Goal {
     notes: string | null
     isCompleted: boolean | null
     createdAt: Date | null
+    linkedAccountIds: string[] | null
 }
 
 interface GoalCardProps {

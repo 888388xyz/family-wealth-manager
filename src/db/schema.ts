@@ -1,4 +1,4 @@
-import { pgTable, text, integer, timestamp, bigint, date, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, integer, timestamp, bigint, date, boolean, jsonb } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
 // --- Auth (NextAuth.js Standard Schema) ---
@@ -179,6 +179,7 @@ export const assetGoals = pgTable("asset_goals", {
     currency: text("currency").default("CNY"),
     deadline: date("deadline", { mode: "string" }),
     category: text("category"), // savings/investment/emergency/other
+    linkedAccountIds: jsonb("linked_account_ids").$type<string[]>().default([]),
     notes: text("notes"),
     isCompleted: boolean("is_completed").default(false),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),

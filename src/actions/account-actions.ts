@@ -49,18 +49,26 @@ export async function getAccountsAction() {
     // 如果是管理员，获取所有人的账户；否则只获取自己的
     const data = await db.query.bankAccounts.findMany({
         where: isAdmin ? undefined : eq(bankAccounts.userId, user.id),
-        with: isAdmin ? {
-            user: {
+        with: {
+            user: isAdmin ? {
                 columns: {
                     name: true,
                     email: true
                 }
+            } : undefined,
+            tagRelations: {
+                with: {
+                    tag: true
+                }
             }
-        } : undefined,
+        },
         orderBy: [desc(bankAccounts.updatedAt)],
     })
 
-    return data
+    return data.map(account => ({
+        ...account,
+        tags: account.tagRelations.map(tr => tr.tag)
+    }))
 }
 
 // 添加账户

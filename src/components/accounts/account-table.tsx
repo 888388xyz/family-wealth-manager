@@ -13,7 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { EditAccountDialog } from "./edit-account-dialog"
 import { AddAccountDialog } from "./add-account-dialog"
 import { createCloneData, type CloneData } from "@/lib/account-utils"
-import { AccountTagBadges } from "./account-tag-badges"
+
 
 interface Account {
     id: string
@@ -28,6 +28,7 @@ interface Account {
     notes: string | null
     updatedAt: Date | null
     user?: { name: string | null; email: string }
+    tags?: { id: string; name: string; color: string | null }[]
 }
 
 interface ProductType { id: string; value: string; label: string }
@@ -353,7 +354,23 @@ export function AccountTable({
                                     )}
                                 </TableCell>
                                 <TableCell className="text-right text-muted-foreground">{formatYield(account.expectedYield)}</TableCell>
-                                <TableCell><AccountTagBadges accountId={account.id} /></TableCell>
+                                <TableCell>
+                                    <div className="flex flex-wrap gap-1">
+                                        {account.tags && account.tags.length > 0 ? (
+                                            account.tags.map(tag => (
+                                                <span
+                                                    key={tag.id}
+                                                    className="px-2 py-0.5 rounded-full text-xs font-medium text-white"
+                                                    style={{ backgroundColor: tag.color || '#3b82f6' }}
+                                                >
+                                                    {tag.name}
+                                                </span>
+                                            ))
+                                        ) : (
+                                            <span className="text-xs text-muted-foreground">-</span>
+                                        )}
+                                    </div>
+                                </TableCell>
                                 <TableCell className="text-right">
                                     <Button variant="ghost" size="icon" onClick={() => handleClone(account)} title="克隆账户">
                                         <Copy className="h-4 w-4 text-muted-foreground" />
