@@ -1,6 +1,5 @@
 import { db } from "@/db";
-import { systemSettings } from "@/db/schema";
-import { eq } from "drizzle-orm";
+
 
 const BREVO_API_URL = "https://api.brevo.com/v3/smtp/email";
 

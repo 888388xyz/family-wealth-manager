@@ -2,9 +2,8 @@
 
 import { db } from "@/db"
 import { users, pending2FASessions } from "@/db/schema"
-import { hashPassword, verifyPassword } from "@/lib/hash"
+import { verifyPassword } from "@/lib/hash"
 import { eq, lte } from "drizzle-orm"
-import { redirect } from "next/navigation"
 import { loginLimiter } from "@/lib/rate-limiter"
 import { signIn } from "@/auth"
 import { logAudit } from "@/lib/audit-logger"
@@ -14,7 +13,7 @@ import { verifyTOTP } from "@/lib/totp"
 import { logger } from "@/lib/logger"
 import { PENDING_2FA_EXPIRY_MS } from "@/lib/constants"
 
-export async function registerAction(formData: FormData) {
+export async function registerAction(_formData: FormData) {
     return { error: "注册功能已关闭，请联系管理员开通账号" }
 }
 
@@ -39,8 +38,8 @@ async function getClientIP(): Promise<string> {
  * 带频率限制的登录操作
  * 支持两步验证流程
  */
-export async function loginAction(formData: FormData): Promise<{ 
-    success: boolean; 
+export async function loginAction(formData: FormData): Promise<{
+    success: boolean;
     error?: string;
     requires2FA?: boolean;
     sessionToken?: string;
@@ -66,9 +65,9 @@ export async function loginAction(formData: FormData): Promise<{
             targetType: 'auth',
             details: { email, reason: '登录尝试过于频繁', ip: clientIP },
         })
-        return { 
-            success: false, 
-            error: "登录尝试过于频繁，请5分钟后再试" 
+        return {
+            success: false,
+            error: "登录尝试过于频繁，请5分钟后再试"
         }
     }
 
@@ -120,8 +119,8 @@ export async function loginAction(formData: FormData): Promise<{
             details: { email },
         })
 
-        return { 
-            success: false, 
+        return {
+            success: false,
             requires2FA: true,
             sessionToken
         }
@@ -153,7 +152,7 @@ export async function loginAction(formData: FormData): Promise<{
  * 验证 TOTP 码并完成登录
  */
 export async function verifyTOTPAction(
-    sessionToken: string, 
+    sessionToken: string,
     totpCode: string
 ): Promise<{ success: boolean; error?: string }> {
     if (!sessionToken || !totpCode) {
@@ -172,9 +171,9 @@ export async function verifyTOTPAction(
     // 检查频率限制
     const rateLimitResult = loginLimiter.check(rateLimitKey)
     if (!rateLimitResult) {
-        return { 
-            success: false, 
-            error: "验证尝试过于频繁，请5分钟后再试" 
+        return {
+            success: false,
+            error: "验证尝试过于频繁，请5分钟后再试"
         }
     }
 

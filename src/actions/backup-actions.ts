@@ -1,17 +1,16 @@
 "use server"
 
 import { db } from "@/db"
-import { 
-    users, 
-    bankAccounts, 
-    balanceHistory, 
+import {
+    users,
+    bankAccounts,
+    balanceHistory,
     dailySnapshots,
     systemBanks,
     systemProductTypes,
     systemCurrencies,
     notifications,
-    auditLogs,
-    exchangeRates
+    auditLogs
 } from "@/db/schema"
 import { auth } from "@/auth"
 import { eq } from "drizzle-orm"
@@ -167,14 +166,14 @@ export async function adminFullBackupAction(password: string) {
                 userId: user?.id || null,
                 action: "ADMIN_BACKUP",
                 targetType: "system",
-                details: { 
+                details: {
                     stats: backupData.stats,
-                    encrypted: true 
+                    encrypted: true
                 },
             })
 
-            return { 
-                success: true, 
+            return {
+                success: true,
                 data: encryptedData,
                 filename: `backup-${new Date().toISOString().split('T')[0]}.enc`,
                 stats: backupData.stats
@@ -216,9 +215,9 @@ export async function verifyBackupAction(encryptedData: string, password: string
  * 管理员恢复备份（危险操作，会覆盖现有数据）
  */
 export async function adminRestoreBackupAction(
-    encryptedData: string, 
+    encryptedData: string,
     password: string,
-    options: { 
+    options: {
         restoreUsers?: boolean
         restoreAccounts?: boolean
         restoreConfig?: boolean
@@ -226,11 +225,11 @@ export async function adminRestoreBackupAction(
     } = {}
 ) {
     return adminAction(async (user) => {
-        const { 
-            restoreUsers = false, 
-            restoreAccounts = true, 
+        const {
+            restoreUsers = false,
+            restoreAccounts = true,
             restoreConfig = true,
-            clearExisting = false 
+            clearExisting = false
         } = options
 
         try {
@@ -257,7 +256,7 @@ export async function adminRestoreBackupAction(
                     await db.delete(systemProductTypes)
                     await db.delete(systemCurrencies)
                 }
-                
+
                 for (const bank of backupData.data.systemBanks) {
                     await db.insert(systemBanks).values(bank).onConflictDoNothing()
                 }
@@ -343,15 +342,15 @@ export async function adminRestoreBackupAction(
                 userId: user?.id || null,
                 action: "ADMIN_RESTORE",
                 targetType: "system",
-                details: { 
+                details: {
                     restored,
                     options,
                     backupDate: backupData.exportedAt
                 },
             })
 
-            return { 
-                success: true, 
+            return {
+                success: true,
                 restored,
                 message: "备份恢复完成"
             }

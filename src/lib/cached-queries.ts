@@ -1,6 +1,6 @@
 import { cache } from 'react'
 import { db } from '@/db'
-import { users, exchangeRates } from '@/db/schema'
+import { users } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { auth } from '@/auth'
 
@@ -13,7 +13,7 @@ import { auth } from '@/auth'
 export const getCurrentUser = cache(async () => {
     const session = await auth()
     if (!session?.user?.id) return null
-    
+
     return db.query.users.findFirst({
         where: eq(users.id, session.user.id)
     })
