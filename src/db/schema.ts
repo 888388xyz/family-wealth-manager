@@ -168,6 +168,42 @@ export const dailySnapshots = pgTable("daily_snapshots", {
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
 });
 
+// --- 资产目标 ---
+
+export const assetGoals = pgTable("asset_goals", {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    userId: text("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    targetAmount: bigint("target_amount", { mode: "number" }).notNull(),
+    currentAmount: bigint("current_amount", { mode: "number" }).default(0),
+    currency: text("currency").default("CNY"),
+    deadline: date("deadline", { mode: "string" }),
+    category: text("category"), // savings/investment/emergency/other
+    notes: text("notes"),
+    isCompleted: boolean("is_completed").default(false),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).$onUpdate(() => new Date()),
+});
+
+// --- 账户标签 ---
+
+export const accountTags = pgTable("account_tags", {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    userId: text("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    color: text("color").default("#3b82f6"),
+    sortOrder: integer("sort_order").default(0),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
+});
+
+// --- 账户-标签关联（多对多） ---
+
+export const accountTagRelations = pgTable("account_tag_relations", {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    accountId: text("accountId").notNull().references(() => bankAccounts.id, { onDelete: "cascade" }),
+    tagId: text("tagId").notNull().references(() => accountTags.id, { onDelete: "cascade" }),
+});
+
 // --- Relations ---
 
 export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
@@ -197,6 +233,7 @@ export const bankAccountsRelations = relations(bankAccounts, ({ one, many }) => 
         references: [users.id],
     }),
     history: many(balanceHistory),
+    tagRelations: many(accountTagRelations),
 }));
 
 export const balanceHistoryRelations = relations(balanceHistory, ({ one }) => ({
@@ -210,5 +247,31 @@ export const pending2FASessionsRelations = relations(pending2FASessions, ({ one 
     user: one(users, {
         fields: [pending2FASessions.userId],
         references: [users.id],
+    }),
+}));
+
+export const assetGoalsRelations = relations(assetGoals, ({ one }) => ({
+    user: one(users, {
+        fields: [assetGoals.userId],
+        references: [users.id],
+    }),
+}));
+
+export const accountTagsRelations = relations(accountTags, ({ one, many }) => ({
+    user: one(users, {
+        fields: [accountTags.userId],
+        references: [users.id],
+    }),
+    accountRelations: many(accountTagRelations),
+}));
+
+export const accountTagRelationsRelations = relations(accountTagRelations, ({ one }) => ({
+    account: one(bankAccounts, {
+        fields: [accountTagRelations.accountId],
+        references: [bankAccounts.id],
+    }),
+    tag: one(accountTags, {
+        fields: [accountTagRelations.tagId],
+        references: [accountTags.id],
     }),
 }));

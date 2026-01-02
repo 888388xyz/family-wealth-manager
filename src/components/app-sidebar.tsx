@@ -12,7 +12,7 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { LayoutDashboard, Wallet, Settings, ShieldCheck, Cog, FileText, TrendingUp } from "lucide-react"
+import { LayoutDashboard, Wallet, Settings, ShieldCheck, Cog, FileText, TrendingUp, Target } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { UserInfo } from "@/components/ui/user-info"
@@ -20,6 +20,7 @@ import { UserInfo } from "@/components/ui/user-info"
 const items = [
     { title: "仪表面板", url: "/dashboard", icon: LayoutDashboard },
     { title: "账户管理", url: "/accounts", icon: Wallet },
+    { title: "目标管理", url: "/goals", icon: Target },
     { title: "趋势分析", url: "/trends", icon: TrendingUp },
 ]
 

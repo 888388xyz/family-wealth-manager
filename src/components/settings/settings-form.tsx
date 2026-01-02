@@ -16,7 +16,7 @@ interface User {
     role: string | null
 }
 
-export function SettingsForm({ user }: { user: User }) {
+export function SettingsForm({ user, children }: { user: User; children?: React.ReactNode }) {
     const [profileMessage, setProfileMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
     const [passwordMessage, setPasswordMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
     const [isUpdatingProfile, setIsUpdatingProfile] = useState(false)
@@ -123,6 +123,8 @@ export function SettingsForm({ user }: { user: User }) {
 
             {/* 右列 */}
             <div className="space-y-6">
+                {/* 额外内容（如标签管理） */}
+                {children}
                 {/* 两步验证 */}
                 <TwoFactorSetup />
             </div>
