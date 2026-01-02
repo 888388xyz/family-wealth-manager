@@ -3,7 +3,9 @@ import path from "path";
 
 const nextConfig: NextConfig = {
   output: "standalone", // For Docker deployment
-  // Using webpack config for Windows compatibility (Turbopack has issues with Windows paths)
+  // Empty turbopack config for Vercel production builds (Next.js 16 requirement)
+  turbopack: {},
+  // Using webpack config for Windows dev compatibility (use: pnpm dev -- --webpack)
   webpack: (config) => {
     config.resolve = config.resolve || {};
     config.resolve.alias = {
@@ -15,4 +17,3 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
-
