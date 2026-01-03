@@ -1,4 +1,5 @@
 import { db } from "@/db";
+import { logger } from "@/lib/logger";
 
 
 const BREVO_API_URL = "https://api.brevo.com/v3/smtp/email";
@@ -22,7 +23,7 @@ export async function sendEmail({ to, subject, textContent, htmlContent }: SendE
     const EMAIL_FROM = config.EMAIL_FROM || "wealth-manager@oheng.com";
 
     if (!BREVO_API_KEY) {
-        console.warn("BREVO_API_KEY is not configured in database settings.");
+        logger.warn("BREVO_API_KEY is not configured in database settings.");
         return { success: false, error: "Email service not configured" };
     }
 
@@ -46,13 +47,13 @@ export async function sendEmail({ to, subject, textContent, htmlContent }: SendE
         const data = await response.json();
 
         if (!response.ok) {
-            console.error("Brevo API Error:", data);
+            logger.error("Brevo API Error", new Error(JSON.stringify(data)));
             return { success: false, error: data.message || "Failed to send email" };
         }
 
         return { success: true, messageId: data.messageId };
     } catch (error) {
-        console.error("Error sending email via Brevo:", error);
+        logger.error("Error sending email via Brevo", error instanceof Error ? error : new Error(String(error)));
         return { success: false, error: "Internal server error during email sending" };
     }
 }
