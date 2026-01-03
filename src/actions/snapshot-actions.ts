@@ -221,15 +221,18 @@ export async function createDailySnapshotAction() {
  * 为全系统所有用户创建快照
  * 
  * 优化：使用 SQL 直接进行聚合计算和批量插入，避免加载所有账户到内存
+ * @param isCronJob - 如果为 true，跳过认证检查（仅供 Cron API 内部调用）
  */
-export async function createAllUsersSnapshotsAction() {
-    const session = await auth()
-    if (!session?.user?.id) return { error: "未登录" }
+export async function createAllUsersSnapshotsAction(isCronJob = false) {
+    // Cron Job 调用时跳过认证检查
+    if (!isCronJob) {
+        const session = await auth()
+        if (!session?.user?.id) return { error: "未登录" }
 
-    try {
         const currentUser = await db.query.users.findFirst({ where: eq(users.id, session.user.id) })
         if (currentUser?.role !== "ADMIN") return { error: "无权限" }
-
+    }
+    try {
         const today = new Date().toISOString().split('T')[0]
 
         // 策略：先删除今日已生成的快照，再重新插入
