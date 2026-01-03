@@ -1,4 +1,4 @@
-import { pgTable, text, integer, timestamp, bigint, date, boolean, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, integer, timestamp, bigint, date, boolean, jsonb, index, unique } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
 // --- Auth (NextAuth.js Standard Schema) ---
@@ -77,7 +77,9 @@ export const bankAccounts = pgTable("bank_account", {
     notes: text("notes"),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
     updatedAt: timestamp("updated_at", { mode: "date" }).$onUpdate(() => new Date()),
-});
+}, (table) => ({
+    userIdIdx: index("user_id_idx").on(table.userId),
+}));
 
 // --- 余额历史（用于图表） ---
 
@@ -166,7 +168,9 @@ export const dailySnapshots = pgTable("daily_snapshots", {
     currency: text("currency").default("CNY"),
     snapshotDate: date("snapshot_date", { mode: "string" }).notNull(),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
-});
+}, (table) => ({
+    userDateUniq: unique("user_date_uniq").on(table.userId, table.snapshotDate),
+}));
 
 // --- 资产目标 ---
 

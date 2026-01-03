@@ -27,6 +27,22 @@ export interface CreateNotificationData {
 export async function createNotificationAction(
     data: CreateNotificationData
 ): Promise<{ success: boolean; error?: string }> {
+    // 安全检查：验证调用者身份
+    const session = await auth()
+    if (!session?.user?.id) {
+        return { success: false, error: "未登录" }
+    }
+
+    // 权限检查：只能为自己创建通知，除非是管理员
+    if (data.userId !== session.user.id) {
+        const currentUser = await db.query.users.findFirst({
+            where: eq(users.id, session.user.id)
+        })
+        if (currentUser?.role !== "ADMIN") {
+            return { success: false, error: "无权为其他用户创建通知" }
+        }
+    }
+
     try {
         // 插入通知到数据库
         await db.insert(notifications).values({

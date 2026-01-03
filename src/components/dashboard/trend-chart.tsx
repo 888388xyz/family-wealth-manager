@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client"
 
-import { useState, useEffect, useTransition } from "react"
+import { useState, useEffect, useTransition, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -52,9 +52,9 @@ export function TrendChart({ className, initialData }: TrendChartProps) {
         return () => clearTimeout(timer)
     }, [])
 
-    const fetchData = async (days: number) => {
+    const fetchData = useCallback(async (days: number) => {
         // 只有在首次挂载且 days 为默认值 30 时，才可能跳过 fetchData
-        if (days === 30 && initialData && data.length === initialData.length && loading === false) {
+        if (days === 30 && initialData && initialData.length > 0) {
             return
         }
 
@@ -74,11 +74,11 @@ export function TrendChart({ className, initialData }: TrendChartProps) {
         } finally {
             setLoading(false)
         }
-    }
+    }, [initialData])
 
     useEffect(() => {
         fetchData(timeRange)
-    }, [timeRange])
+    }, [timeRange, fetchData])
 
     const handleRefresh = () => {
         startTransition(async () => {

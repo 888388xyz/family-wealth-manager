@@ -107,9 +107,9 @@ export async function getDailySnapshotsAction(days: number = 30) {
 
         // 5. 最终兜底：如果数据库里真的还没写进去，但当前确实有资产，则即时生成一组虚拟数据返回给前端展示
         if (result.length < 5) {
-            logger.info('[Trends] Final fallback: Database empty/low. Generating DETERMINISTIC virtual data.', { 
-                isAdmin, 
-                requestedDays: days 
+            logger.info('[Trends] Final fallback: Database empty/low. Generating DETERMINISTIC virtual data.', {
+                isAdmin,
+                requestedDays: days
             })
 
             // 获取汇率
@@ -220,7 +220,7 @@ export async function createDailySnapshotAction() {
 /**
  * 为全系统所有用户创建快照
  * 
- * 优化：批量查询所有账户，内存中按用户分组，避免 N+1 查询
+ * 优化：使用 SQL 直接进行聚合计算和批量插入，避免加载所有账户到内存
  */
 export async function createAllUsersSnapshotsAction() {
     const session = await auth()
@@ -231,46 +231,32 @@ export async function createAllUsersSnapshotsAction() {
         if (currentUser?.role !== "ADMIN") return { error: "无权限" }
 
         const today = new Date().toISOString().split('T')[0]
-        const rates = await db.query.exchangeRates.findMany()
-        const ratesMap = new Map<string, number>(rates.map((r: any) => [r.code, parseFloat(r.rate)]))
-        ratesMap.set("CNY", 1.0)
 
-        const allUsers = await db.query.users.findMany()
+        // 策略：先删除今日已生成的快照，再重新插入
+        // 这是安全的，因为快照是时间点记录
+        await db.delete(dailySnapshots).where(eq(dailySnapshots.snapshotDate, today));
 
-        // 优化：一次性查询所有账户，内存分组
-        const allAccounts = await db.query.bankAccounts.findMany()
-        const accountsByUser = new Map<string, typeof allAccounts>()
-        for (const account of allAccounts) {
-            const userAccounts = accountsByUser.get(account.userId) || []
-            userAccounts.push(account)
-            accountsByUser.set(account.userId, userAccounts)
-        }
+        // 使用 SQL 直接进行聚合计算和批量插入
+        await db.execute(sql`
+            INSERT INTO daily_snapshots ("id", "userId", "total_balance", "currency", "snapshot_date", "created_at")
+            SELECT 
+                gen_random_uuid(),
+                ba."userId",
+                SUM(
+                    CASE 
+                        WHEN ba.currency = 'CNY' THEN ba.balance
+                        ELSE ba.balance * COALESCE(er.rate::numeric, 1)
+                    END
+                ),
+                'CNY',
+                ${today},
+                NOW()
+            FROM bank_account ba
+            LEFT JOIN exchange_rates er ON ba.currency = er.code
+            GROUP BY ba."userId"
+        `);
 
-        for (const user of allUsers) {
-            // 从内存中获取用户账户，而不是每次查询数据库
-            const accounts = accountsByUser.get(user.id) || []
-            const totalBalanceInCNY = accounts.reduce((sum: number, acc: any) => {
-                const currency = acc.currency || "CNY"
-                const rate = ratesMap.get(currency) || 1.0
-                return sum + (currency === "CNY" ? (acc.balance as number) : (acc.balance as number) * rate)
-            }, 0)
-
-            const existing = await db.query.dailySnapshots.findFirst({
-                where: and(eq(dailySnapshots.userId, user.id), eq(dailySnapshots.snapshotDate, today))
-            })
-
-            if (existing) {
-                await db.update(dailySnapshots).set({ totalBalance: totalBalanceInCNY }).where(eq(dailySnapshots.id, existing.id))
-            } else {
-                await db.insert(dailySnapshots).values({
-                    userId: user.id,
-                    totalBalance: totalBalanceInCNY,
-                    currency: "CNY",
-                    snapshotDate: today,
-                })
-            }
-        }
-        return { success: true, count: allUsers.length }
+        return { success: true }
     } catch (err) {
         logger.error("[Trends] 批量创建快照失败", err instanceof Error ? err : new Error(String(err)))
         return { error: "批量创建快照失败" }
@@ -351,9 +337,9 @@ async function seedHistoricalSnapshots(targetUserId: string | null) {
 
             if (snapshotsToInsert.length > 0) {
                 await db.insert(dailySnapshots).values(snapshotsToInsert)
-                logger.info('[Trends] Seeded snapshots for user', { 
-                    count: snapshotsToInsert.length, 
-                    userEmail: user.email 
+                logger.info('[Trends] Seeded snapshots for user', {
+                    count: snapshotsToInsert.length,
+                    userEmail: user.email
                 })
 
                 // 记录成功种子
