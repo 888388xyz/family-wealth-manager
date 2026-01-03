@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { checkMaturityRemindersAction } from "@/actions/notification-actions"
 import { createAllUsersSnapshotsAction } from "@/actions/snapshot-actions"
+import { refreshExchangeRates } from "@/actions/currency-actions"
 
 // Vercel Cron Jobs 通过这个 header 验证请求
 // https://vercel.com/docs/cron-jobs
@@ -15,16 +16,20 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-        // 1. 检查到期提醒并发送邮件
+        // 1. 刷新汇率数据
+        const exchangeRateResult = await refreshExchangeRates()
+
+        // 2. 检查到期提醒并发送邮件
         const reminderResult = await checkMaturityRemindersAction()
 
-        // 2. 为所有用户创建今日快照（传入 true 跳过认证检查）
+        // 3. 为所有用户创建今日快照（传入 true 跳过认证检查）
         const snapshotResult = await createAllUsersSnapshotsAction(true)
 
         return NextResponse.json({
             success: true,
             timestamp: new Date().toISOString(),
             results: {
+                exchangeRates: exchangeRateResult,
                 maturityReminders: reminderResult,
                 dailySnapshots: snapshotResult
             }
