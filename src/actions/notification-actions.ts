@@ -215,11 +215,14 @@ export async function checkMaturityRemindersAction(): Promise<{
             if (!account.maturityDate) continue
 
             const maturityDateStr = account.maturityDate
-            const isSevenDays = maturityDateStr === sevenDaysLaterStr
-            const isOneDay = maturityDateStr === oneDayLaterStr
-            const isToday = maturityDateStr === todayStr
+            const maturityDate = new Date(maturityDateStr)
 
-            if (!isSevenDays && !isOneDay && !isToday) continue
+            // 计算距离到期还有多少天
+            const diffTime = maturityDate.getTime() - today.getTime()
+            const daysUntilMaturity = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+
+            // 只提醒 7 天内到期的账户（包括已过期的）
+            if (daysUntilMaturity > 7 || daysUntilMaturity < 0) continue
 
             // 检查是否已经发送过相同类型的提醒
             const existingReminder = await db.query.notifications.findFirst({
@@ -240,7 +243,6 @@ export async function checkMaturityRemindersAction(): Promise<{
             })
 
             // 格式化到期日期
-            const maturityDate = new Date(maturityDateStr)
             const maturityDateDisplay = maturityDate.toLocaleDateString('zh-CN', {
                 year: 'numeric',
                 month: 'long',
@@ -250,15 +252,15 @@ export async function checkMaturityRemindersAction(): Promise<{
             let title: string
             let content: string
 
-            if (isToday) {
+            if (daysUntilMaturity === 0) {
                 title = `【今日到期】${account.accountName}`
                 content = `您的理财产品"${account.accountName}"（${account.bankName}）今日到期，当前余额 ¥${balanceDisplay}，请及时处理。[账户ID:${account.id}]`
-            } else if (isOneDay) {
+            } else if (daysUntilMaturity === 1) {
                 title = `【明日到期】${account.accountName}`
                 content = `您的理财产品"${account.accountName}"（${account.bankName}）将于明日（${maturityDateDisplay}）到期，当前余额 ¥${balanceDisplay}，请提前做好准备。[账户ID:${account.id}]`
             } else {
-                title = `【即将到期】${account.accountName}`
-                content = `您的理财产品"${account.accountName}"（${account.bankName}）将于7天后（${maturityDateDisplay}）到期，当前余额 ¥${balanceDisplay}，请提前规划。[账户ID:${account.id}]`
+                title = `【${daysUntilMaturity}天后到期】${account.accountName}`
+                content = `您的理财产品"${account.accountName}"（${account.bankName}）将于${daysUntilMaturity}天后（${maturityDateDisplay}）到期，当前余额 ¥${balanceDisplay}，请提前规划。[账户ID:${account.id}]`
             }
 
             await db.insert(notifications).values({
