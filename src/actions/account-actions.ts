@@ -10,6 +10,7 @@ import { logAudit } from "@/lib/audit-logger"
 import { createDailySnapshotAction } from "./snapshot-actions"
 import { validateUUID } from "@/lib/validators"
 import { CENTS_PER_UNIT, YIELD_MULTIPLIER } from "@/lib/constants"
+import { logger } from "@/lib/logger"
 
 const accountSchema = z.object({
     bankName: z.string().min(1, "请选择银行/平台"),
@@ -141,10 +142,10 @@ export async function addAccountAction(formData: FormData) {
         revalidatePath("/accounts")
         revalidatePath("/dashboard")
         revalidatePath("/trends")
-        createDailySnapshotAction().catch(e => console.error("Snapshot error:", e))
+        createDailySnapshotAction().catch(e => logger.error("Snapshot error", e instanceof Error ? e : new Error(String(e))))
         return { success: true }
     } catch (err) {
-        console.error(err)
+        logger.error("[Account] Error", err instanceof Error ? err : new Error(String(err)))
         return { error: "创建账户失败" }
     }
 }
@@ -222,10 +223,10 @@ export async function updateAccountAction(
         revalidatePath("/accounts")
         revalidatePath("/dashboard")
         revalidatePath("/trends")
-        createDailySnapshotAction().catch(e => console.error("Snapshot error:", e))
+        createDailySnapshotAction().catch(e => logger.error("Snapshot error", e instanceof Error ? e : new Error(String(e))))
         return { success: true }
     } catch (err) {
-        console.error(err)
+        logger.error("[Account] Error", err instanceof Error ? err : new Error(String(err)))
         return { error: "更新账户失败" }
     }
 }
@@ -292,10 +293,10 @@ export async function updateBalanceAction(accountId: string, newBalance: number)
         revalidatePath("/accounts")
         revalidatePath("/dashboard")
         revalidatePath("/trends")
-        createDailySnapshotAction().catch(e => console.error("Snapshot error:", e))
+        createDailySnapshotAction().catch(e => logger.error("Snapshot error", e instanceof Error ? e : new Error(String(e))))
         return { success: true }
     } catch (err) {
-        console.error(err)
+        logger.error("[Account] Error", err instanceof Error ? err : new Error(String(err)))
         return { error: "更新余额失败" }
     }
 }
@@ -352,10 +353,10 @@ export async function deleteAccountAction(accountId: string) {
         revalidatePath("/accounts")
         revalidatePath("/dashboard")
         revalidatePath("/trends")
-        createDailySnapshotAction().catch(e => console.error("Snapshot error:", e))
+        createDailySnapshotAction().catch(e => logger.error("Snapshot error", e instanceof Error ? e : new Error(String(e))))
         return { success: true }
     } catch (err) {
-        console.error(err)
+        logger.error("[Account] Error", err instanceof Error ? err : new Error(String(err)))
         return { error: "删除账户失败，可能存在数据关联限制" }
     }
 }
@@ -394,7 +395,7 @@ export async function getAccountHistoryAction(accountId: string) {
 
         return history
     } catch (err) {
-        console.error(err)
+        logger.error("[Account] Error", err instanceof Error ? err : new Error(String(err)))
         return null
     }
 }

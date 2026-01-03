@@ -17,6 +17,7 @@ import { eq } from "drizzle-orm"
 import { adminAction } from "@/lib/action-utils"
 import { encryptData, decryptData } from "@/lib/crypto"
 import { logAudit } from "@/lib/audit-logger"
+import { logger } from "@/lib/logger"
 
 const BACKUP_VERSION = "2.0"
 
@@ -179,7 +180,7 @@ export async function adminFullBackupAction(password: string) {
                 stats: backupData.stats
             }
         } catch (error) {
-            console.error("Backup error:", error)
+            logger.error("Backup error", error instanceof Error ? error : new Error(String(error)))
             return { error: "备份失败，请重试" }
         }
     })
@@ -355,7 +356,7 @@ export async function adminRestoreBackupAction(
                 message: "备份恢复完成"
             }
         } catch (error) {
-            console.error("Restore error:", error)
+            logger.error("Restore error", error instanceof Error ? error : new Error(String(error)))
             return { error: "恢复失败，请检查密码和备份文件" }
         }
     })

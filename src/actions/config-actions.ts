@@ -5,6 +5,7 @@ import { systemBanks, systemProductTypes, systemCurrencies, systemSettings } fro
 import { eq, asc } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { adminAction } from "@/lib/action-utils"
+import { logger } from "@/lib/logger"
 
 // --- Banks ---
 export async function getBanksAction() {
@@ -109,7 +110,7 @@ export async function getSystemSettingsAction() {
         // Convert array to object for easier use: { key: value }
         return settings.reduce<Record<string, string>>((acc, curr) => ({ ...acc, [curr.key]: curr.value }), {})
     } catch (err) {
-        console.warn("[Config] Failed to fetch settings, table might not exist yet:", err)
+        logger.warn("[Config] Failed to fetch settings, table might not exist yet")
         return {}
     }
 }
@@ -126,7 +127,7 @@ export async function updateSystemSettingAction(key: string, value: string) {
             revalidatePath("/config")
             return { success: true }
         } catch (err) {
-            console.error("[Settings] Update failed:", err)
+            logger.error("[Settings] Update failed", err instanceof Error ? err : new Error(String(err)))
             return { error: "更新设置失败" }
         }
     })
@@ -207,12 +208,12 @@ export async function initializeConfigAction() {
                     }
                 }
             } catch (err) {
-                console.warn("[Config] Skipping settings seed, table might not exist yet:", err)
+                logger.warn("[Config] Skipping settings seed, table might not exist yet")
             }
 
             return { success: true }
         } catch (err) {
-            console.error("[Config] Initialize failed:", err)
+            logger.error("[Config] Initialize failed", err instanceof Error ? err : new Error(String(err)))
             return { error: "初始化配置失败" }
         }
     })

@@ -4,22 +4,23 @@ import { db } from "@/db"
 import { exchangeRates, systemCurrencies } from "@/db/schema"
 import { inArray } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
+import { logger } from "@/lib/logger"
 
 const CACHE_DURATION = 6 * 60 * 60 * 1000 // 6 hours
 
 export async function getExchangeRatesAction() {
     try {
         const now = new Date()
-        
+
         // Get configured currencies from system_currencies table
         const configuredCurrencies = await db.query.systemCurrencies.findMany()
         const configuredCodes = configuredCurrencies.map(c => c.code)
-        
+
         // If no currencies configured, return empty
         if (configuredCodes.length === 0) {
             return []
         }
-        
+
         // Only get rates for configured currencies
         const rates = await db.query.exchangeRates.findMany({
             where: inArray(exchangeRates.code, configuredCodes)
@@ -41,7 +42,7 @@ export async function getExchangeRatesAction() {
 
         return rates
     } catch (err) {
-        console.error("[Currency] Failed to get rates:", err)
+        logger.error("[Currency] Failed to get rates", err instanceof Error ? err : new Error(String(err)))
         return []
     }
 }
@@ -56,12 +57,12 @@ export async function refreshExchangeRates() {
         // Get configured currencies from system_currencies table
         const configuredCurrencies = await db.query.systemCurrencies.findMany()
         const configuredCodes = configuredCurrencies.map(c => c.code)
-        
+
         // If no currencies configured, skip refresh
         if (configuredCodes.length === 0) {
             return { success: true }
         }
-        
+
         // Fetch rates from Frankfurter (CNY as base)
         const response = await fetch("https://api.frankfurter.app/latest?from=CNY")
         if (!response.ok) throw new Error("API response not ok")
@@ -75,7 +76,7 @@ export async function refreshExchangeRates() {
         // 优化：使用 onConflictDoUpdate 批量 upsert
         for (const code of configuredCodes) {
             if (code === "CNY") continue // Skip CNY, handle separately
-            
+
             if (apiRates[code]) {
                 const rateInCNY = (1 / apiRates[code]).toFixed(6)
                 const now = new Date()
@@ -103,7 +104,7 @@ export async function refreshExchangeRates() {
         revalidatePath("/dashboard")
         return { success: true }
     } catch (err) {
-        console.error("[Currency] Refresh failed:", err)
+        logger.error("[Currency] Refresh failed", err instanceof Error ? err : new Error(String(err)))
         return { error: "无法获取最新汇率" }
     }
 }

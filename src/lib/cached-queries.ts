@@ -18,16 +18,3 @@ export const getCurrentUser = cache(async () => {
         where: eq(users.id, session.user.id)
     })
 })
-
-/**
- * 缓存汇率数据（同一请求内复用）
- * 
- * 返回一个 Map，key 为货币代码，value 为汇率（相对于 CNY）
- */
-export const getExchangeRatesMap = cache(async () => {
-    const rates = await db.query.exchangeRates.findMany()
-    const ratesMap = new Map<string, number>()
-    rates.forEach(r => ratesMap.set(r.code, parseFloat(r.rate)))
-    ratesMap.set("CNY", 1.0)
-    return ratesMap
-})

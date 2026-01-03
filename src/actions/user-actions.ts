@@ -9,6 +9,7 @@ import { logAudit } from "@/lib/audit-logger"
 import { adminAction } from "@/lib/action-utils"
 import { validatePassword } from "@/lib/password-validator"
 import { validateRole, validateUUID } from "@/lib/validators"
+import { logger } from "@/lib/logger"
 
 export async function createUserAction(formData: FormData) {
     return adminAction(async (sessionUser) => {
@@ -61,7 +62,7 @@ export async function createUserAction(formData: FormData) {
             revalidatePath("/users")
             return { success: true }
         } catch (err) {
-            console.error("[CreateUser] Error:", err)
+            logger.error("[CreateUser] Error", err instanceof Error ? err : new Error(String(err)))
             return { error: "创建用户失败" }
         }
     })
@@ -161,7 +162,7 @@ export async function deleteUserAction(userId: string) {
             revalidatePath("/users")
             return { success: true }
         } catch (err: any) {
-            console.error(err)
+            logger.error("[DeleteUser] Error", err instanceof Error ? err : new Error(String(err)))
             return { error: `删除失败: ${err.message || '未知数据库错误'}` }
         }
     })
@@ -201,7 +202,7 @@ export async function resetUserPasswordAction(userId: string, newPassword: strin
             revalidatePath("/users")
             return { success: true }
         } catch (err) {
-            console.error("[ResetPassword] Error:", err)
+            logger.error("[ResetPassword] Error", err instanceof Error ? err : new Error(String(err)))
             return { error: "重置密码失败" }
         }
     })
@@ -239,7 +240,7 @@ export async function updateUserNameAction(userId: string, name: string) {
             revalidatePath("/users")
             return { success: true }
         } catch (err) {
-            console.error("[UpdateUserName] Error:", err)
+            logger.error("[UpdateUserName] Error", err instanceof Error ? err : new Error(String(err)))
             return { error: "修改昵称失败" }
         }
     })

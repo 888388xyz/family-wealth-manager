@@ -5,6 +5,7 @@ import { notifications, users, bankAccounts } from "@/db/schema"
 import { auth } from "@/auth"
 import { eq, desc, and, sql, isNotNull, lte, gte, inArray } from "drizzle-orm"
 import { sendEmail } from "@/lib/brevo-utils"
+import { logger } from "@/lib/logger"
 
 export interface Notification {
     id: string
@@ -68,7 +69,7 @@ export async function createNotificationAction(
 
         return { success: true }
     } catch (error) {
-        console.error("Failed to create notification:", error)
+        logger.error("Failed to create notification", error instanceof Error ? error : new Error(String(error)))
         return { success: false, error: "创建通知失败" }
     }
 }
@@ -152,7 +153,7 @@ export async function markAsReadAction(
 
         return { success: true }
     } catch (error) {
-        console.error("Failed to mark notification as read:", error)
+        logger.error("Failed to mark notification as read", error instanceof Error ? error : new Error(String(error)))
         return { success: false, error: "操作失败" }
     }
 }
@@ -175,7 +176,7 @@ export async function markAllAsReadAction(): Promise<{ success: boolean; error?:
 
         return { success: true }
     } catch (error) {
-        console.error("Failed to mark all notifications as read:", error)
+        logger.error("Failed to mark all notifications as read", error instanceof Error ? error : new Error(String(error)))
         return { success: false, error: "操作失败" }
     }
 }
@@ -282,7 +283,7 @@ export async function checkMaturityRemindersAction(): Promise<{
 
         return { success: true, remindersCreated }
     } catch (error) {
-        console.error("Failed to check maturity reminders:", error)
+        logger.error("Failed to check maturity reminders", error instanceof Error ? error : new Error(String(error)))
         return { success: false, remindersCreated: 0, error: "检查到期提醒失败" }
     }
 }
@@ -341,7 +342,7 @@ export async function getUpcomingMaturitiesAction(
             }
         }).sort((a, b) => a.daysUntilMaturity - b.daysUntilMaturity)
     } catch (error) {
-        console.error("Failed to get upcoming maturities:", error)
+        logger.error("Failed to get upcoming maturities", error instanceof Error ? error : new Error(String(error)))
         return null
     }
 }
